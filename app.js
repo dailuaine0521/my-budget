@@ -1,388 +1,75 @@
 (() => {
   'use strict';
 
-  const STORAGE = { salt: 'budget_salt_v1', vault: 'budget_vault_v1', kdf: 'budget_kdf_v2' };
+  const STORAGE = { salt: 'budget_salt_v1', vault: 'budget_vault_v1', kdf: 'budget_kdf_v2', lastDate: 'budget_last_date_v1' };
   const LEGACY_ITERATIONS = 250000;
   const STRONG_ITERATIONS = 600000;
   const BACKGROUND_LOCK_MS = 30000;
-  const IDLE_LOCK_MS = 5 * 60 * 1000;
-  const expenseCats = ['식비','교통','주거/공과금','쇼핑','여가','건강','교육','경조사','구독','기타'];
+  const IDLE_LOCK_MS = 3 * 60 * 1000;
+  const expenseCats = ['식비','편의점','교통','주거/공과금','쇼핑','여가','건강','교육','경조사','구독','기타'];
   const incomeCats = ['급여','용돈/지원','부수입','환급','투자/이자','기타'];
+  const catColors = {
+    '식비':'#ef4444','편의점':'#f59e0b','교통':'#3b82f6','주거/공과금':'#8b5cf6','쇼핑':'#ec4899',
+    '여가':'#14b8a6','건강':'#22c55e','교육':'#6366f1','경조사':'#a16207','구독':'#64748b','기타':'#9ca3af'
+  };
 
-  let key = null;
-  let data = null;
-  let view = new Date();
-  let hiddenAt = 0;
-  let lastActivity = Date.now();
-  let failedUnlocks = 0;
-  let blockedUntil = 0;
-  view.setDate(1);
+  let key = null, data = null, hiddenAt = 0, lastActivity = Date.now(), failedUnlocks = 0, blockedUntil = 0;
+  let view = new Date(); view.setDate(1);
 
   const $ = id => document.getElementById(id);
-  const enc = new TextEncoder();
-  const dec = new TextDecoder();
+  const enc = new TextEncoder(), dec = new TextDecoder();
   const bytesToB64 = bytes => btoa(String.fromCharCode(...new Uint8Array(bytes)));
   const b64ToBytes = str => Uint8Array.from(atob(str), c => c.charCodeAt(0));
-
-  function currentKdf() {
-    try {
-      const raw = localStorage.getItem(STORAGE.kdf);
-      if (!raw) return { version: 1, iterations: LEGACY_ITERATIONS, hash: 'SHA-256' };
-      const parsed = JSON.parse(raw);
-      const iterations = Number(parsed.iterations);
-      if (!Number.isInteger(iterations) || iterations < 100000 || iterations > 2000000) throw new Error('invalid kdf');
-      return { version: Number(parsed.version) || 2, iterations, hash: 'SHA-256' };
-    } catch {
-      return { version: 1, iterations: LEGACY_ITERATIONS, hash: 'SHA-256' };
-    }
-  }
-
-  async function deriveKey(password, saltB64, iterations) {
-    const material = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']);
-    return crypto.subtle.deriveKey(
-      { name: 'PBKDF2', salt: b64ToBytes(saltB64), iterations, hash: 'SHA-256' },
-      material,
-      { name: 'AES-GCM', length: 256 },
-      false,
-      ['encrypt', 'decrypt']
-    );
-  }
-
-  async function encryptObject(obj, cryptoKey) {
-    const iv = crypto.getRandomValues(new Uint8Array(12));
-    const cipher = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, cryptoKey, enc.encode(JSON.stringify(obj)));
-    return { iv: bytesToB64(iv), data: bytesToB64(cipher) };
-  }
-
-  async function decryptObject(vault, cryptoKey) {
-    const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64ToBytes(vault.iv) }, cryptoKey, b64ToBytes(vault.data));
-    return JSON.parse(dec.decode(plain));
-  }
-
-  async function persist() {
-    if (!data || !key) return;
-    localStorage.setItem(STORAGE.vault, JSON.stringify(await encryptObject(data, key)));
-  }
-
-  function passwordIsStrong(password) {
-    if (password.length < 10 || password.length > 64) return false;
-    const hasLetter = /\p{L}/u.test(password);
-    const hasNumber = /\p{N}/u.test(password);
-    return (hasLetter && hasNumber) || password.length >= 14;
-  }
-
-  function passwordHint() {
-    return '10~64자로 입력하세요. 문자+숫자를 함께 쓰거나 14자 이상의 긴 암호문구를 사용하세요.';
-  }
-
-  function showOnly(id) {
-    ['setup','locked','app'].forEach(x => $(x).classList.add('hidden'));
-    $(id).classList.remove('hidden');
-  }
-
-  function toast(message, ms = 2200) {
-    $('toast').textContent = message;
-    $('toast').classList.remove('hidden');
-    setTimeout(() => $('toast').classList.add('hidden'), ms);
-  }
-
-  function noteActivity() { lastActivity = Date.now(); }
-
-  async function setup() {
-    const first = $('p1').value;
-    const second = $('p2').value;
-    if (!passwordIsStrong(first)) return toast(passwordHint(), 3500);
-    if (first !== second) return toast('두 비밀번호가 서로 다릅니다.');
-
-    const salt = bytesToB64(crypto.getRandomValues(new Uint8Array(16)));
-    key = await deriveKey(first, salt, STRONG_ITERATIONS);
-    data = { version: 2, createdAt: new Date().toISOString(), transactions: [] };
-    localStorage.setItem(STORAGE.salt, salt);
-    localStorage.setItem(STORAGE.kdf, JSON.stringify({ version: 2, iterations: STRONG_ITERATIONS, hash: 'SHA-256' }));
-    await persist();
-    $('p1').value = $('p2').value = '';
-    openApp();
-  }
-
-  async function unlock() {
-    const now = Date.now();
-    if (now < blockedUntil) return toast(`잠시 후 다시 시도하세요. ${Math.ceil((blockedUntil - now) / 1000)}초`);
-
-    const password = $('upin').value;
-    const salt = localStorage.getItem(STORAGE.salt);
-    const rawVault = localStorage.getItem(STORAGE.vault);
-    if (!salt || !rawVault) return showOnly('setup');
-
-    try {
-      const kdf = currentKdf();
-      const candidate = await deriveKey(password, salt, kdf.iterations);
-      const plain = await decryptObject(JSON.parse(rawVault), candidate);
-      key = candidate;
-      data = plain;
-      failedUnlocks = 0;
-      blockedUntil = 0;
-      $('upin').value = '';
-      openApp();
-      if (!localStorage.getItem(STORAGE.kdf)) toast('기존 PIN으로 열었습니다. 설정에서 강한 비밀번호로 변경하세요.', 4200);
-    } catch {
-      failedUnlocks += 1;
-      if (failedUnlocks >= 5) {
-        blockedUntil = Date.now() + 30000;
-        failedUnlocks = 0;
-        toast('실패가 반복되어 30초 동안 잠깁니다.', 3500);
-      } else {
-        toast('비밀번호가 올바르지 않습니다.');
-      }
-    }
-  }
-
-  function openApp() {
-    showOnly('app');
-    view = new Date();
-    view.setDate(1);
-    noteActivity();
-    render();
-  }
-
-  function lockNow(message = '') {
-    key = null;
-    data = null;
-    $('settingsOverlay').classList.add('hidden');
-    $('txOverlay').classList.add('hidden');
-    $('passwordOverlay').classList.add('hidden');
-    showOnly('locked');
-    $('legacyNotice').classList.toggle('hidden', Boolean(localStorage.getItem(STORAGE.kdf)));
-    if (message) toast(message);
-  }
-
   const won = n => new Intl.NumberFormat('ko-KR').format(Math.round(n)) + '원';
   const pad = n => String(n).padStart(2, '0');
   const ymd = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
   const monthKey = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}`;
 
-  function escapeHtml(s) {
-    return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
-  }
+  function currentKdf(){try{const raw=localStorage.getItem(STORAGE.kdf);if(!raw)return{version:1,iterations:LEGACY_ITERATIONS,hash:'SHA-256'};const p=JSON.parse(raw),i=Number(p.iterations);if(!Number.isInteger(i)||i<100000||i>2000000)throw 0;return{version:Number(p.version)||2,iterations:i,hash:'SHA-256'}}catch{return{version:1,iterations:LEGACY_ITERATIONS,hash:'SHA-256'}}}
+  async function deriveKey(password,saltB64,iterations){const material=await crypto.subtle.importKey('raw',enc.encode(password),'PBKDF2',false,['deriveKey']);return crypto.subtle.deriveKey({name:'PBKDF2',salt:b64ToBytes(saltB64),iterations,hash:'SHA-256'},material,{name:'AES-GCM',length:256},false,['encrypt','decrypt'])}
+  async function encryptObject(obj,cryptoKey){const iv=crypto.getRandomValues(new Uint8Array(12));const cipher=await crypto.subtle.encrypt({name:'AES-GCM',iv},cryptoKey,enc.encode(JSON.stringify(obj)));return{iv:bytesToB64(iv),data:bytesToB64(cipher)}}
+  async function decryptObject(vault,cryptoKey){const plain=await crypto.subtle.decrypt({name:'AES-GCM',iv:b64ToBytes(vault.iv)},cryptoKey,b64ToBytes(vault.data));return JSON.parse(dec.decode(plain))}
+  async function persist(){if(!data||!key)return;localStorage.setItem(STORAGE.vault,JSON.stringify(await encryptObject(data,key)))}
+  function passwordIsStrong(p){if(p.length<10||p.length>64)return false;return (/\p{L}/u.test(p)&&/\p{N}/u.test(p))||p.length>=14}
+  function passwordHint(){return '10~64자로 입력하세요. 문자+숫자를 함께 쓰거나 14자 이상의 긴 암호문구를 사용하세요.'}
+  function showOnly(id){['setup','locked','app'].forEach(x=>$(x).classList.add('hidden'));$(id).classList.remove('hidden')}
+  function toast(message,ms=2200){$('toast').textContent=message;$('toast').classList.remove('hidden');setTimeout(()=>$('toast').classList.add('hidden'),ms)}
+  function noteActivity(){lastActivity=Date.now()}
+  function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
 
-  function render() {
-    if (!data) return;
-    const m = monthKey(view);
-    const tx = [...data.transactions]
-      .filter(t => t.date.startsWith(m))
-      .sort((a,b) => b.date.localeCompare(a.date) || (b.updatedAt || '').localeCompare(a.updatedAt || ''));
-    const income = tx.filter(t => t.type === 'income').reduce((s,t) => s + t.amount, 0);
-    const expense = tx.filter(t => t.type === 'expense').reduce((s,t) => s + t.amount, 0);
-    const balance = income - expense;
+  async function setup(){const first=$('p1').value,second=$('p2').value;if(!passwordIsStrong(first))return toast(passwordHint(),3500);if(first!==second)return toast('두 비밀번호가 서로 다릅니다.');const salt=bytesToB64(crypto.getRandomValues(new Uint8Array(16)));key=await deriveKey(first,salt,STRONG_ITERATIONS);data={version:3,createdAt:new Date().toISOString(),transactions:[]};localStorage.setItem(STORAGE.salt,salt);localStorage.setItem(STORAGE.kdf,JSON.stringify({version:2,iterations:STRONG_ITERATIONS,hash:'SHA-256'}));await persist();$('p1').value=$('p2').value='';openApp()}
+  async function unlock(){const now=Date.now();if(now<blockedUntil)return toast(`잠시 후 다시 시도하세요. ${Math.ceil((blockedUntil-now)/1000)}초`);try{const salt=localStorage.getItem(STORAGE.salt),rawVault=localStorage.getItem(STORAGE.vault);if(!salt||!rawVault)return showOnly('setup');const candidate=await deriveKey($('upin').value,salt,currentKdf().iterations);data=await decryptObject(JSON.parse(rawVault),candidate);key=candidate;failedUnlocks=0;blockedUntil=0;$('upin').value='';openApp()}catch{failedUnlocks++;if(failedUnlocks>=5){blockedUntil=Date.now()+30000;failedUnlocks=0;toast('실패가 반복되어 30초 동안 잠깁니다.',3500)}else toast('비밀번호가 올바르지 않습니다.')}}
+  function openApp(){showOnly('app');view=new Date();view.setDate(1);noteActivity();render()}
+  function lockNow(message=''){key=null;data=null;['settingsOverlay','txOverlay','passwordOverlay'].forEach(id=>$(id).classList.add('hidden'));showOnly('locked');$('legacyNotice').classList.toggle('hidden',Boolean(localStorage.getItem(STORAGE.kdf)));if(message)toast(message)}
 
-    $('monthLabel').textContent = `${view.getFullYear()}년 ${view.getMonth()+1}월`;
-    $('sumIn').textContent = won(income);
-    $('sumOut').textContent = won(expense);
-    $('sumBal').textContent = won(balance);
-    $('sumBal').classList.toggle('negative', balance < 0);
-    $('count').textContent = `${tx.length}건`;
+  function render(){if(!data)return;const m=monthKey(view);const tx=[...data.transactions].filter(t=>t.date.startsWith(m)).sort((a,b)=>b.date.localeCompare(a.date)||(b.updatedAt||'').localeCompare(a.updatedAt||''));const income=tx.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);const expense=tx.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0);const balance=income-expense;$('monthLabel').textContent=`${view.getFullYear()}년 ${view.getMonth()+1}월`;$('sumIn').textContent=won(income);$('sumOut').textContent=won(expense);$('sumBal').textContent=won(balance);$('sumBal').classList.toggle('negative',balance<0);$('count').textContent=`${tx.length}건`;renderCategorySummary(tx);renderCalendar(tx);renderList(tx)}
 
-    const box = $('list');
-    box.innerHTML = '';
-    if (!tx.length) {
-      box.innerHTML = '<div class="empty">이 달에 기록된 내역이 없습니다.<br>위 버튼으로 첫 내역을 추가해보세요.</div>';
-      return;
-    }
+  function renderCategorySummary(tx){const expenseTx=tx.filter(t=>t.type==='expense');const totals={};expenseTx.forEach(t=>totals[t.category]=(totals[t.category]||0)+t.amount);const box=$('categorySummary');if(!expenseTx.length){box.innerHTML='<div class="empty compact">아직 지출이 없습니다.</div>';return}box.innerHTML=expenseCats.filter(c=>totals[c]).sort((a,b)=>totals[b]-totals[a]).map(c=>`<div class="cat-row"><span class="cat-dot" style="background:${catColors[c]||'#9ca3af'}"></span><span class="cat-name">${escapeHtml(c)}</span><b>${won(totals[c])}</b></div>`).join('')}
 
-    const groups = {};
-    tx.forEach(t => (groups[t.date] ??= []).push(t));
-    Object.keys(groups).sort((a,b) => b.localeCompare(a)).forEach(date => {
-      const d = new Date(date + 'T00:00:00');
-      const weekday = ['일','월','화','수','목','금','토'][d.getDay()];
-      const wrap = document.createElement('div');
-      wrap.innerHTML = `<div class="day">${d.getMonth()+1}월 ${d.getDate()}일 (${weekday})</div>`;
-      groups[date].forEach(t => {
-        const row = document.createElement('button');
-        const sign = t.type === 'expense' ? '-' : '+';
-        row.className = `tx ${t.type}`;
-        row.innerHTML = `<span class="dot"></span><span class="txm"><span class="txn">${escapeHtml(t.title || t.category)}</span><span class="meta">${escapeHtml(t.category)}${t.payment ? ' · ' + escapeHtml(t.payment) : ''}</span></span><span class="amt">${sign}${won(t.amount)}</span>`;
-        row.addEventListener('click', () => openTx(t.type, t));
-        wrap.appendChild(row);
-      });
-      box.appendChild(wrap);
-    });
-  }
+  function renderCalendar(tx){const box=$('calendar');const year=view.getFullYear(),month=view.getMonth();const firstDay=new Date(year,month,1).getDay(),days=new Date(year,month+1,0).getDate();const dayTotals={};tx.filter(t=>t.type==='expense').forEach(t=>dayTotals[Number(t.date.slice(-2))]=(dayTotals[Number(t.date.slice(-2))]||0)+t.amount);let html='<div class="cal-head">'+['일','월','화','수','목','금','토'].map(d=>`<span>${d}</span>`).join('')+'</div><div class="cal-grid">';for(let i=0;i<firstDay;i++)html+='<div class="cal-cell blank"></div>';for(let d=1;d<=days;d++){const amount=dayTotals[d]||0;html+=`<button class="cal-cell${amount?' has-spend':''}" data-day="${d}"><span class="cal-day">${d}</span>${amount?`<span class="cal-amt">${new Intl.NumberFormat('ko-KR').format(amount)}</span>`:''}</button>`}html+='</div>';box.innerHTML=html;box.querySelectorAll('[data-day]').forEach(btn=>btn.addEventListener('click',()=>{const date=`${year}-${pad(month+1)}-${pad(Number(btn.dataset.day))}`;const target=document.querySelector(`[data-date="${date}"]`);if(target)target.scrollIntoView({behavior:'smooth',block:'start'});else toast('이 날짜에는 기록이 없습니다.')}))}
 
-  function fillCats(type, selected) {
-    const cats = type === 'expense' ? expenseCats : incomeCats;
-    $('cat').innerHTML = cats.map(c => `<option ${c === selected ? 'selected' : ''}>${escapeHtml(c)}</option>`).join('');
-  }
+  function renderList(tx){const box=$('list');box.innerHTML='';if(!tx.length){box.innerHTML='<div class="empty">이 달에 기록된 내역이 없습니다.<br>위 버튼으로 첫 내역을 추가해보세요.</div>';return}const groups={};tx.forEach(t=>(groups[t.date]??=[]).push(t));Object.keys(groups).sort((a,b)=>b.localeCompare(a)).forEach(date=>{const d=new Date(date+'T00:00:00'),weekday=['일','월','화','수','목','금','토'][d.getDay()],dailyExpense=groups[date].filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0);const wrap=document.createElement('div');wrap.dataset.date=date;wrap.innerHTML=`<div class="day"><span>${d.getMonth()+1}월 ${d.getDate()}일 (${weekday})</span>${dailyExpense?`<b>지출 ${won(dailyExpense)}</b>`:''}</div>`;groups[date].forEach(t=>{const row=document.createElement('button'),sign=t.type==='expense'?'-':'+';row.className=`tx ${t.type}`;const color=t.type==='expense'?(catColors[t.category]||'#9ca3af'):'#059669';row.innerHTML=`<span class="dot" style="background:${color}"></span><span class="txm"><span class="txn">${escapeHtml(t.title||t.category)}</span><span class="meta">${escapeHtml(t.category)}${t.payment?' · '+escapeHtml(t.payment):''}</span></span><span class="amt">${sign}${won(t.amount)}</span>`;row.addEventListener('click',()=>openTx(t.type,t));wrap.appendChild(row)});box.appendChild(wrap)})}
 
-  function openTx(type, tx = null) {
-    $('type').value = type;
-    $('id').value = tx?.id || '';
-    $('txTitle').textContent = tx ? '내역 수정' : (type === 'expense' ? '지출 기록' : '수입 기록');
-    $('date').value = tx?.date || ymd(new Date());
-    $('amount').value = tx?.amount ?? '';
-    $('title').value = tx?.title ?? '';
-    $('memo').value = tx?.memo ?? '';
-    $('pay').value = tx?.payment ?? '카드';
-    fillCats(type, tx?.category);
-    $('payField').classList.toggle('hidden', type === 'income');
-    $('delWrap').classList.toggle('hidden', !tx);
-    $('txOverlay').classList.remove('hidden');
-    setTimeout(() => $('amount').focus(), 80);
-  }
+  function fillCats(type,selected){const cats=type==='expense'?expenseCats:incomeCats;$('cat').innerHTML=cats.map(c=>`<option ${c===selected?'selected':''}>${escapeHtml(c)}</option>`).join('')}
+  function rememberedDate(){const d=localStorage.getItem(STORAGE.lastDate);return /^\d{4}-\d{2}-\d{2}$/.test(d||'')?d:ymd(new Date())}
+  function openTx(type,tx=null){$('type').value=type;$('id').value=tx?.id||'';$('txTitle').textContent=tx?'내역 수정':(type==='expense'?'지출 기록':'수입 기록');$('date').value=tx?.date||rememberedDate();$('amount').value=tx?.amount??'';$('title').value=tx?.title??'';$('memo').value=tx?.memo??'';$('pay').value=tx?.payment??'카드';fillCats(type,tx?.category);$('payField').classList.toggle('hidden',type==='income');$('delWrap').classList.toggle('hidden',!tx);$('txOverlay').classList.remove('hidden');setTimeout(()=>$('amount').focus(),80)}
+  async function saveTx(){const type=$('type').value,amount=Number($('amount').value),date=$('date').value;if(!date)return toast('날짜를 선택하세요.');if(!Number.isFinite(amount)||amount<=0)return toast('금액을 입력하세요.');localStorage.setItem(STORAGE.lastDate,date);const id=$('id').value||crypto.randomUUID(),old=data.transactions.find(t=>t.id===id);const item={id,type,date,amount,category:$('cat').value,payment:type==='expense'?$('pay').value:'',title:$('title').value.trim()||$('cat').value,memo:$('memo').value.trim(),createdAt:old?.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString()};const index=data.transactions.findIndex(t=>t.id===id);if(index>=0)data.transactions[index]=item;else data.transactions.push(item);await persist();$('txOverlay').classList.add('hidden');view=new Date(date+'T00:00:00');view.setDate(1);render();toast('저장했습니다.')}
+  async function deleteTx(){const id=$('id').value;if(!id||!confirm('이 내역을 삭제할까요?'))return;data.transactions=data.transactions.filter(t=>t.id!==id);await persist();$('txOverlay').classList.add('hidden');render();toast('삭제했습니다.')}
 
-  async function saveTx() {
-    const type = $('type').value;
-    const amount = Number($('amount').value);
-    const date = $('date').value;
-    if (!date) return toast('날짜를 선택하세요.');
-    if (!Number.isFinite(amount) || amount <= 0) return toast('금액을 입력하세요.');
+  function detectPayment(text){if(/카카오\s*페이|kakao\s*pay/i.test(text))return '카카오페이';if(/네이버\s*페이|naver\s*pay/i.test(text))return '네이버페이';if(/토스|toss/i.test(text))return '토스';return '간편결제'}
+  function detectCategory(text){if(/cu|gs25|세븐일레븐|이마트24|미니스톱|편의점/i.test(text))return '편의점';if(/택시|버스|지하철|교통|주유|충전/i.test(text))return '교통';if(/병원|약국|의원|치과/i.test(text))return '건강';if(/넷플릭스|유튜브|구독|spotify/i.test(text))return '구독';if(/마트|식당|카페|커피|배달|푸드|치킨|피자|버거/i.test(text))return '식비';if(/쇼핑|백화점|쿠팡|무신사|스토어/i.test(text))return '쇼핑';return '기타'}
+  function parseDate(text){const m=text.match(/(20\d{2})[.\/-]\s*(\d{1,2})[.\/-]\s*(\d{1,2})/);if(m)return `${m[1]}-${pad(Number(m[2]))}-${pad(Number(m[3]))}`;const m2=text.match(/(\d{1,2})[.\/-]\s*(\d{1,2})/);if(m2){const y=new Date().getFullYear();return `${y}-${pad(Number(m2[1]))}-${pad(Number(m2[2]))}`}return rememberedDate()}
+  function parseAmount(text){const matches=[...text.matchAll(/(?:₩|원|결제|승인|금액|합계|받은\s*금액|보낸\s*금액)?\s*([0-9]{1,3}(?:,[0-9]{3})+|[0-9]{4,9})\s*원?/g)].map(m=>Number(m[1].replaceAll(',',''))).filter(n=>n>=100&&n<100000000);return matches.length?Math.max(...matches):0}
+  function parseTitle(text){const lines=text.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);const skip=/결제|승인|금액|원|카드|일시|날짜|토스|네이버페이|카카오페이|pay|잔액|포인트/i;return lines.find(s=>s.length>=2&&s.length<=30&&!skip.test(s)&&!/^\d/.test(s))||''}
+  async function scanImage(file){if(!file)return;if(!window.Tesseract)return toast('OCR 모듈을 불러오지 못했습니다. 인터넷 연결을 확인하세요.',3500);$('scanStatus').classList.remove('hidden');$('scanStatus').textContent='이미지에서 거래내역을 읽는 중입니다…';$('scanBtn').disabled=true;try{const result=await Tesseract.recognize(file,'kor+eng',{logger:m=>{if(m.status==='recognizing text')$('scanStatus').textContent=`문자 인식 중… ${Math.round((m.progress||0)*100)}%`}});const text=result?.data?.text||'';const amount=parseAmount(text),date=parseDate(text),payment=detectPayment(text),category=detectCategory(text),title=parseTitle(text),isIncome=/입금|받았|받은\s*금액|송금받|충전취소|환불/i.test(text)&&!/결제|출금|보낸\s*금액/i.test(text);openTx(isIncome?'income':'expense');$('date').value=date;$('amount').value=amount||'';$('title').value=title;$('memo').value='캡처에서 자동 인식';fillCats(isIncome?'income':'expense',isIncome?'기타':category);if(!isIncome)$('pay').value=payment;$('scanStatus').textContent=amount?'자동 인식했습니다. 저장 전 날짜·금액·내용을 확인하세요.':'일부 항목만 인식했습니다. 직접 확인해 입력해주세요.';toast('캡처 인식 완료',2500)}catch(e){console.error(e);$('scanStatus').textContent='이미지를 읽지 못했습니다.';toast('캡처 인식에 실패했습니다. 다른 캡처를 시도해주세요.',3500)}finally{$('scanBtn').disabled=false;$('scanInput').value=''}}
 
-    const id = $('id').value || crypto.randomUUID();
-    const old = data.transactions.find(t => t.id === id);
-    const item = {
-      id, type, date, amount,
-      category: $('cat').value,
-      payment: type === 'expense' ? $('pay').value : '',
-      title: $('title').value.trim() || $('cat').value,
-      memo: $('memo').value.trim(),
-      createdAt: old?.createdAt || new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    const index = data.transactions.findIndex(t => t.id === id);
-    if (index >= 0) data.transactions[index] = item;
-    else data.transactions.push(item);
-    await persist();
-    $('txOverlay').classList.add('hidden');
-    view = new Date(date + 'T00:00:00');
-    view.setDate(1);
-    render();
-    toast('저장했습니다.');
-  }
+  function download(name,blob){const a=document.createElement('a'),url=URL.createObjectURL(blob);a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500)}
+  function backup(){const payload={app:'private-household-budget',version:3,exportedAt:new Date().toISOString(),salt:localStorage.getItem(STORAGE.salt),kdf:currentKdf(),vault:JSON.parse(localStorage.getItem(STORAGE.vault))};download(`가계부_암호화백업_${ymd(new Date()).replaceAll('-','')}.json`,new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}));toast('암호화 백업을 저장했습니다.')}
+  function exportCsv(){const rows=[['구분','날짜','카테고리','내용','금액','결제수단','메모']];[...data.transactions].sort((a,b)=>a.date.localeCompare(b.date)).forEach(t=>rows.push([t.type==='expense'?'지출':'수입',t.date,t.category,t.title,t.amount,t.payment||'',t.memo||'']));const q=v=>`"${String(v??'').replaceAll('"','""')}"`;download(`가계부_${ymd(new Date()).replaceAll('-','')}.csv`,new Blob(['\uFEFF'+rows.map(r=>r.map(q).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'}));toast('CSV를 저장했습니다. 평문 파일이므로 보관에 주의하세요.',3500)}
+  async function restoreFile(file){try{const obj=JSON.parse(await file.text());if(obj.app!=='private-household-budget'||!obj.salt||!obj.vault)throw 0;localStorage.setItem(STORAGE.salt,obj.salt);localStorage.setItem(STORAGE.vault,JSON.stringify(obj.vault));if(obj.kdf?.iterations)localStorage.setItem(STORAGE.kdf,JSON.stringify({version:Number(obj.kdf.version)||2,iterations:Number(obj.kdf.iterations),hash:'SHA-256'}));else localStorage.removeItem(STORAGE.kdf);key=null;data=null;$('settingsOverlay').classList.add('hidden');showOnly('locked');toast('복원했습니다. 백업 당시 비밀번호/PIN을 입력하세요.',3500)}catch{toast('올바른 암호화 백업 파일이 아닙니다.')}}
+  async function changePassword(){const current=$('currentPassword').value,next=$('newPassword').value,next2=$('newPassword2').value;if(!passwordIsStrong(next))return toast(passwordHint(),3500);if(next!==next2)return toast('새 비밀번호 두 개가 서로 다릅니다.');if(current===next)return toast('현재 비밀번호와 다른 비밀번호를 사용하세요.');try{const salt=localStorage.getItem(STORAGE.salt),vault=JSON.parse(localStorage.getItem(STORAGE.vault)),oldKey=await deriveKey(current,salt,currentKdf().iterations);await decryptObject(vault,oldKey);const newSalt=bytesToB64(crypto.getRandomValues(new Uint8Array(16))),newKey=await deriveKey(next,newSalt,STRONG_ITERATIONS),newVault=await encryptObject(data,newKey);localStorage.setItem(STORAGE.salt,newSalt);localStorage.setItem(STORAGE.kdf,JSON.stringify({version:2,iterations:STRONG_ITERATIONS,hash:'SHA-256'}));localStorage.setItem(STORAGE.vault,JSON.stringify(newVault));key=newKey;$('currentPassword').value=$('newPassword').value=$('newPassword2').value='';$('passwordOverlay').classList.add('hidden');toast('비밀번호와 암호화 설정을 강화했습니다.',3200)}catch{toast('현재 비밀번호/PIN이 올바르지 않습니다.')}}
 
-  async function deleteTx() {
-    const id = $('id').value;
-    if (!id || !confirm('이 내역을 삭제할까요?')) return;
-    data.transactions = data.transactions.filter(t => t.id !== id);
-    await persist();
-    $('txOverlay').classList.add('hidden');
-    render();
-    toast('삭제했습니다.');
-  }
-
-  function download(name, blob) {
-    const a = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    a.href = url;
-    a.download = name;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1500);
-  }
-
-  function backup() {
-    const payload = {
-      app: 'private-household-budget', version: 2, exportedAt: new Date().toISOString(),
-      salt: localStorage.getItem(STORAGE.salt),
-      kdf: currentKdf(),
-      vault: JSON.parse(localStorage.getItem(STORAGE.vault))
-    };
-    download(`가계부_암호화백업_${ymd(new Date()).replaceAll('-','')}.json`, new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'}));
-    toast('암호화 백업을 저장했습니다.');
-  }
-
-  function exportCsv() {
-    const rows = [['구분','날짜','카테고리','내용','금액','결제수단','메모']];
-    [...data.transactions].sort((a,b) => a.date.localeCompare(b.date)).forEach(t => rows.push([t.type === 'expense' ? '지출' : '수입', t.date, t.category, t.title, t.amount, t.payment || '', t.memo || '']));
-    const q = v => `"${String(v ?? '').replaceAll('"','""')}"`;
-    const content = '\uFEFF' + rows.map(r => r.map(q).join(',')).join('\r\n');
-    download(`가계부_${ymd(new Date()).replaceAll('-','')}.csv`, new Blob([content], {type:'text/csv;charset=utf-8'}));
-    toast('CSV를 저장했습니다. 평문 파일이므로 보관에 주의하세요.', 3500);
-  }
-
-  async function restoreFile(file) {
-    try {
-      const obj = JSON.parse(await file.text());
-      if (obj.app !== 'private-household-budget' || !obj.salt || !obj.vault) throw new Error('invalid backup');
-      localStorage.setItem(STORAGE.salt, obj.salt);
-      localStorage.setItem(STORAGE.vault, JSON.stringify(obj.vault));
-      if (obj.kdf?.iterations) localStorage.setItem(STORAGE.kdf, JSON.stringify({version: Number(obj.kdf.version) || 2, iterations: Number(obj.kdf.iterations), hash:'SHA-256'}));
-      else localStorage.removeItem(STORAGE.kdf);
-      key = null;
-      data = null;
-      $('settingsOverlay').classList.add('hidden');
-      showOnly('locked');
-      $('legacyNotice').classList.toggle('hidden', Boolean(localStorage.getItem(STORAGE.kdf)));
-      toast('복원했습니다. 백업 당시 비밀번호/PIN을 입력하세요.', 3500);
-    } catch {
-      toast('올바른 암호화 백업 파일이 아닙니다.');
-    }
-  }
-
-  async function changePassword() {
-    const current = $('currentPassword').value;
-    const next = $('newPassword').value;
-    const next2 = $('newPassword2').value;
-    if (!passwordIsStrong(next)) return toast(passwordHint(), 3500);
-    if (next !== next2) return toast('새 비밀번호 두 개가 서로 다릅니다.');
-    if (current === next) return toast('현재 비밀번호와 다른 비밀번호를 사용하세요.');
-
-    try {
-      const salt = localStorage.getItem(STORAGE.salt);
-      const vault = JSON.parse(localStorage.getItem(STORAGE.vault));
-      const oldKdf = currentKdf();
-      const oldKey = await deriveKey(current, salt, oldKdf.iterations);
-      await decryptObject(vault, oldKey);
-
-      const newSalt = bytesToB64(crypto.getRandomValues(new Uint8Array(16)));
-      const newKey = await deriveKey(next, newSalt, STRONG_ITERATIONS);
-      const newVault = await encryptObject(data, newKey);
-      localStorage.setItem(STORAGE.salt, newSalt);
-      localStorage.setItem(STORAGE.kdf, JSON.stringify({version:2, iterations:STRONG_ITERATIONS, hash:'SHA-256'}));
-      localStorage.setItem(STORAGE.vault, JSON.stringify(newVault));
-      key = newKey;
-      $('currentPassword').value = $('newPassword').value = $('newPassword2').value = '';
-      $('passwordOverlay').classList.add('hidden');
-      toast('비밀번호와 암호화 설정을 강화했습니다.', 3200);
-    } catch {
-      toast('현재 비밀번호/PIN이 올바르지 않습니다.');
-    }
-  }
-
-  $('setupBtn').addEventListener('click', setup);
-  $('unlockBtn').addEventListener('click', unlock);
-  $('upin').addEventListener('keydown', e => { if (e.key === 'Enter') unlock(); });
-  $('p2').addEventListener('keydown', e => { if (e.key === 'Enter') setup(); });
-  $('addOut').addEventListener('click', () => openTx('expense'));
-  $('addIn').addEventListener('click', () => openTx('income'));
-  $('cancelBtn').addEventListener('click', () => $('txOverlay').classList.add('hidden'));
-  $('saveBtn').addEventListener('click', saveTx);
-  $('deleteBtn').addEventListener('click', deleteTx);
-  $('prev').addEventListener('click', () => { view.setMonth(view.getMonth()-1); render(); });
-  $('next').addEventListener('click', () => { view.setMonth(view.getMonth()+1); render(); });
-  $('settingsBtn').addEventListener('click', () => $('settingsOverlay').classList.remove('hidden'));
-  $('closeSettings').addEventListener('click', () => $('settingsOverlay').classList.add('hidden'));
-  $('lockBtn').addEventListener('click', () => lockNow('가계부를 잠갔습니다.'));
-  $('backupBtn').addEventListener('click', backup);
-  $('csvBtn').addEventListener('click', exportCsv);
-  $('restoreBtn').addEventListener('click', () => $('restoreInput').click());
-  $('restoreInput').addEventListener('change', e => { if (e.target.files[0]) restoreFile(e.target.files[0]); e.target.value = ''; });
-  $('restoreLockBtn').addEventListener('click', () => $('restoreLockInput').click());
-  $('restoreLockInput').addEventListener('change', e => { if (e.target.files[0]) restoreFile(e.target.files[0]); e.target.value = ''; });
-  $('changePasswordBtn').addEventListener('click', () => { $('settingsOverlay').classList.add('hidden'); $('passwordOverlay').classList.remove('hidden'); $('currentPassword').focus(); });
-  $('cancelPasswordBtn').addEventListener('click', () => { $('passwordOverlay').classList.add('hidden'); $('settingsOverlay').classList.remove('hidden'); });
-  $('savePasswordBtn').addEventListener('click', changePassword);
-
-  ['pointerdown','keydown','touchstart','scroll'].forEach(eventName => document.addEventListener(eventName, noteActivity, {passive:true}));
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden) hiddenAt = Date.now();
-    else if (data && hiddenAt && Date.now() - hiddenAt >= BACKGROUND_LOCK_MS) lockNow('30초 이상 자리를 비워 자동으로 잠겼습니다.');
-  });
-  setInterval(() => {
-    if (data && Date.now() - lastActivity >= IDLE_LOCK_MS) lockNow('5분간 사용하지 않아 자동으로 잠겼습니다.');
-  }, 15000);
-
-  if (!window.crypto?.subtle) alert('최신 Safari 또는 Chrome에서 열어주세요.');
-  const exists = localStorage.getItem(STORAGE.salt) && localStorage.getItem(STORAGE.vault);
-  $('legacyNotice').classList.toggle('hidden', Boolean(localStorage.getItem(STORAGE.kdf)));
-  showOnly(exists ? 'locked' : 'setup');
-  if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
+  $('setupBtn').addEventListener('click',setup);$('unlockBtn').addEventListener('click',unlock);$('upin').addEventListener('keydown',e=>{if(e.key==='Enter')unlock()});$('p2').addEventListener('keydown',e=>{if(e.key==='Enter')setup()});$('addOut').addEventListener('click',()=>openTx('expense'));$('addIn').addEventListener('click',()=>openTx('income'));$('cancelBtn').addEventListener('click',()=> $('txOverlay').classList.add('hidden'));$('saveBtn').addEventListener('click',saveTx);$('deleteBtn').addEventListener('click',deleteTx);$('prev').addEventListener('click',()=>{view.setMonth(view.getMonth()-1);render()});$('next').addEventListener('click',()=>{view.setMonth(view.getMonth()+1);render()});$('settingsBtn').addEventListener('click',()=> $('settingsOverlay').classList.remove('hidden'));$('closeSettings').addEventListener('click',()=> $('settingsOverlay').classList.add('hidden'));$('lockBtn').addEventListener('click',()=>lockNow('가계부를 잠갔습니다.'));$('backupBtn').addEventListener('click',backup);$('csvBtn').addEventListener('click',exportCsv);$('restoreBtn').addEventListener('click',()=> $('restoreInput').click());$('restoreInput').addEventListener('change',e=>{if(e.target.files[0])restoreFile(e.target.files[0]);e.target.value=''});$('restoreLockBtn').addEventListener('click',()=> $('restoreLockInput').click());$('restoreLockInput').addEventListener('change',e=>{if(e.target.files[0])restoreFile(e.target.files[0]);e.target.value=''});$('changePasswordBtn').addEventListener('click',()=>{$('settingsOverlay').classList.add('hidden');$('passwordOverlay').classList.remove('hidden');$('currentPassword').focus()});$('cancelPasswordBtn').addEventListener('click',()=>{$('passwordOverlay').classList.add('hidden');$('settingsOverlay').classList.remove('hidden')});$('savePasswordBtn').addEventListener('click',changePassword);$('scanBtn').addEventListener('click',()=> $('scanInput').click());$('scanInput').addEventListener('change',e=>scanImage(e.target.files[0]));
+  ['pointerdown','keydown','touchstart','scroll'].forEach(eventName=>document.addEventListener(eventName,noteActivity,{passive:true}));document.addEventListener('visibilitychange',()=>{if(document.hidden)hiddenAt=Date.now();else if(data&&hiddenAt&&Date.now()-hiddenAt>=BACKGROUND_LOCK_MS)lockNow('30초 이상 자리를 비워 자동으로 잠겼습니다.')});setInterval(()=>{if(data&&Date.now()-lastActivity>=IDLE_LOCK_MS)lockNow('3분간 사용하지 않아 자동으로 잠겼습니다.')},15000);
+  if(!window.crypto?.subtle)alert('최신 Safari 또는 Chrome에서 열어주세요.');const exists=localStorage.getItem(STORAGE.salt)&&localStorage.getItem(STORAGE.vault);$('legacyNotice').classList.toggle('hidden',Boolean(localStorage.getItem(STORAGE.kdf)));showOnly(exists?'locked':'setup');if('serviceWorker'in navigator)addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
 })();
