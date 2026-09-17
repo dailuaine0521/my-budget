@@ -4,7 +4,6 @@
   const STORAGE = { salt: 'budget_salt_v1', vault: 'budget_vault_v1', kdf: 'budget_kdf_v2', lastDate: 'budget_last_date_v1' };
   const LEGACY_ITERATIONS = 250000;
   const STRONG_ITERATIONS = 600000;
-  const BACKGROUND_LOCK_MS = 30000;
   const IDLE_LOCK_MS = 3 * 60 * 1000;
   const expenseCats = ['식비','편의점','교통','주거/공과금','쇼핑','여가','건강','교육','경조사','구독','기타'];
   const incomeCats = ['급여','용돈/지원','부수입','환급','투자/이자','기타'];
@@ -13,7 +12,7 @@
     '여가':'#14b8a6','건강':'#22c55e','교육':'#6366f1','경조사':'#a16207','구독':'#64748b','기타':'#9ca3af'
   };
 
-  let key = null, data = null, hiddenAt = 0, lastActivity = Date.now(), failedUnlocks = 0, blockedUntil = 0;
+  let key = null, data = null, lastActivity = Date.now(), failedUnlocks = 0, blockedUntil = 0;
   let view = new Date(); view.setDate(1);
 
   const $ = id => document.getElementById(id);
@@ -35,7 +34,7 @@
   function showOnly(id){['setup','locked','app'].forEach(x=>$(x).classList.add('hidden'));$(id).classList.remove('hidden')}
   function toast(message,ms=2200){$('toast').textContent=message;$('toast').classList.remove('hidden');setTimeout(()=>$('toast').classList.add('hidden'),ms)}
   function noteActivity(){lastActivity=Date.now()}
-  function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
+  function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#039;'}[m]))}
 
   async function setup(){const first=$('p1').value,second=$('p2').value;if(!passwordIsStrong(first))return toast(passwordHint(),3500);if(first!==second)return toast('두 비밀번호가 서로 다릅니다.');const salt=bytesToB64(crypto.getRandomValues(new Uint8Array(16)));key=await deriveKey(first,salt,STRONG_ITERATIONS);data={version:3,createdAt:new Date().toISOString(),transactions:[]};localStorage.setItem(STORAGE.salt,salt);localStorage.setItem(STORAGE.kdf,JSON.stringify({version:2,iterations:STRONG_ITERATIONS,hash:'SHA-256'}));await persist();$('p1').value=$('p2').value='';openApp()}
   async function unlock(){const now=Date.now();if(now<blockedUntil)return toast(`잠시 후 다시 시도하세요. ${Math.ceil((blockedUntil-now)/1000)}초`);try{const salt=localStorage.getItem(STORAGE.salt),rawVault=localStorage.getItem(STORAGE.vault);if(!salt||!rawVault)return showOnly('setup');const candidate=await deriveKey($('upin').value,salt,currentKdf().iterations);data=await decryptObject(JSON.parse(rawVault),candidate);key=candidate;failedUnlocks=0;blockedUntil=0;$('upin').value='';openApp()}catch{failedUnlocks++;if(failedUnlocks>=5){blockedUntil=Date.now()+30000;failedUnlocks=0;toast('실패가 반복되어 30초 동안 잠깁니다.',3500)}else toast('비밀번호가 올바르지 않습니다.')}}
@@ -70,6 +69,17 @@
   async function changePassword(){const current=$('currentPassword').value,next=$('newPassword').value,next2=$('newPassword2').value;if(!passwordIsStrong(next))return toast(passwordHint(),3500);if(next!==next2)return toast('새 비밀번호 두 개가 서로 다릅니다.');if(current===next)return toast('현재 비밀번호와 다른 비밀번호를 사용하세요.');try{const salt=localStorage.getItem(STORAGE.salt),vault=JSON.parse(localStorage.getItem(STORAGE.vault)),oldKey=await deriveKey(current,salt,currentKdf().iterations);await decryptObject(vault,oldKey);const newSalt=bytesToB64(crypto.getRandomValues(new Uint8Array(16))),newKey=await deriveKey(next,newSalt,STRONG_ITERATIONS),newVault=await encryptObject(data,newKey);localStorage.setItem(STORAGE.salt,newSalt);localStorage.setItem(STORAGE.kdf,JSON.stringify({version:2,iterations:STRONG_ITERATIONS,hash:'SHA-256'}));localStorage.setItem(STORAGE.vault,JSON.stringify(newVault));key=newKey;$('currentPassword').value=$('newPassword').value=$('newPassword2').value='';$('passwordOverlay').classList.add('hidden');toast('비밀번호와 암호화 설정을 강화했습니다.',3200)}catch{toast('현재 비밀번호/PIN이 올바르지 않습니다.')}}
 
   $('setupBtn').addEventListener('click',setup);$('unlockBtn').addEventListener('click',unlock);$('upin').addEventListener('keydown',e=>{if(e.key==='Enter')unlock()});$('p2').addEventListener('keydown',e=>{if(e.key==='Enter')setup()});$('addOut').addEventListener('click',()=>openTx('expense'));$('addIn').addEventListener('click',()=>openTx('income'));$('cancelBtn').addEventListener('click',()=> $('txOverlay').classList.add('hidden'));$('saveBtn').addEventListener('click',saveTx);$('deleteBtn').addEventListener('click',deleteTx);$('prev').addEventListener('click',()=>{view.setMonth(view.getMonth()-1);render()});$('next').addEventListener('click',()=>{view.setMonth(view.getMonth()+1);render()});$('settingsBtn').addEventListener('click',()=> $('settingsOverlay').classList.remove('hidden'));$('closeSettings').addEventListener('click',()=> $('settingsOverlay').classList.add('hidden'));$('lockBtn').addEventListener('click',()=>lockNow('가계부를 잠갔습니다.'));$('backupBtn').addEventListener('click',backup);$('csvBtn').addEventListener('click',exportCsv);$('restoreBtn').addEventListener('click',()=> $('restoreInput').click());$('restoreInput').addEventListener('change',e=>{if(e.target.files[0])restoreFile(e.target.files[0]);e.target.value=''});$('restoreLockBtn').addEventListener('click',()=> $('restoreLockInput').click());$('restoreLockInput').addEventListener('change',e=>{if(e.target.files[0])restoreFile(e.target.files[0]);e.target.value=''});$('changePasswordBtn').addEventListener('click',()=>{$('settingsOverlay').classList.add('hidden');$('passwordOverlay').classList.remove('hidden');$('currentPassword').focus()});$('cancelPasswordBtn').addEventListener('click',()=>{$('passwordOverlay').classList.add('hidden');$('settingsOverlay').classList.remove('hidden')});$('savePasswordBtn').addEventListener('click',changePassword);$('scanBtn').addEventListener('click',()=> $('scanInput').click());$('scanInput').addEventListener('change',e=>scanImage(e.target.files[0]));
-  ['pointerdown','keydown','touchstart','scroll'].forEach(eventName=>document.addEventListener(eventName,noteActivity,{passive:true}));document.addEventListener('visibilitychange',()=>{if(document.hidden)hiddenAt=Date.now();else if(data&&hiddenAt&&Date.now()-hiddenAt>=BACKGROUND_LOCK_MS)lockNow('30초 이상 자리를 비워 자동으로 잠겼습니다.')});setInterval(()=>{if(data&&Date.now()-lastActivity>=IDLE_LOCK_MS)lockNow('3분간 사용하지 않아 자동으로 잠겼습니다.')},15000);
+
+  ['pointerdown','pointermove','keydown','touchstart','touchmove','wheel','input','change'].forEach(eventName=>document.addEventListener(eventName,noteActivity,{passive:true,capture:true}));
+  document.addEventListener('scroll',noteActivity,{passive:true,capture:true});
+  window.addEventListener('scroll',noteActivity,{passive:true});
+  document.addEventListener('visibilitychange',()=>{
+    if(!document.hidden&&data&&Date.now()-lastActivity>=IDLE_LOCK_MS)lockNow('3분간 사용하지 않아 자동으로 잠겼습니다.');
+  });
+  window.addEventListener('pageshow',()=>{
+    if(data&&Date.now()-lastActivity>=IDLE_LOCK_MS)lockNow('3분간 사용하지 않아 자동으로 잠겼습니다.');
+  });
+  setInterval(()=>{if(data&&Date.now()-lastActivity>=IDLE_LOCK_MS)lockNow('3분간 사용하지 않아 자동으로 잠겼습니다.')},15000);
+
   if(!window.crypto?.subtle)alert('최신 Safari 또는 Chrome에서 열어주세요.');const exists=localStorage.getItem(STORAGE.salt)&&localStorage.getItem(STORAGE.vault);$('legacyNotice').classList.toggle('hidden',Boolean(localStorage.getItem(STORAGE.kdf)));showOnly(exists?'locked':'setup');if('serviceWorker'in navigator)addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
 })();
