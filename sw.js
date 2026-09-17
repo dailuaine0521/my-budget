@@ -1,4 +1,4 @@
-const CACHE = "private-budget-v7";
+const CACHE = "private-budget-v8";
 const ASSETS = ["./", "./index.html", "./manifest.json", "./style.css", "./app.js"];
 
 self.addEventListener("install", event => {
