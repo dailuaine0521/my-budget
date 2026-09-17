@@ -1,26 +1,115 @@
 <!doctype html>
 <html lang="ko">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#111827">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="나의 가계부">
-<link rel="manifest" href="./manifest.json">
-<title>나의 가계부</title>
-<style>
-:root{--bg:#f6f7fb;--card:#fff;--text:#111827;--sub:#6b7280;--line:#e5e7eb;--red:#dc2626;--green:#059669;--dark:#111827;--shadow:0 10px 28px rgba(17,24,39,.08)}*{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif;background:var(--bg);color:var(--text)}button,input,select,textarea{font:inherit}.hidden{display:none!important}.wrap{max-width:720px;margin:auto;min-height:100vh;padding-bottom:90px}.top{position:sticky;top:0;z-index:10;padding:calc(14px + env(safe-area-inset-top)) 18px 14px;background:rgba(246,247,251,.94);backdrop-filter:blur(12px);display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line)}.brand{font-size:20px;font-weight:800}.icon{border:0;background:#fff;border-radius:14px;padding:10px 12px;box-shadow:var(--shadow)}.content{padding:16px}.month{display:flex;align-items:center;justify-content:space-between;margin:4px 0 14px}.month button{border:0;background:#fff;border-radius:12px;padding:9px 14px;box-shadow:var(--shadow)}#monthLabel{font-weight:800;font-size:18px}.sum{display:grid;grid-template-columns:1fr 1fr;gap:10px}.card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:16px;box-shadow:var(--shadow)}.sum .card:last-child{grid-column:1/-1}.lab{color:var(--sub);font-size:13px;margin-bottom:6px}.money{font-size:21px;font-weight:800}.inc{color:var(--green)}.exp{color:var(--red)}.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0}.primary{border:0;border-radius:16px;padding:15px;color:#fff;font-weight:800;box-shadow:var(--shadow)}.expb{background:#ef4444}.incb{background:#10b981}.section{font-weight:800;margin:20px 2px 10px;display:flex;justify-content:space-between}.empty{background:#fff;border:1px dashed #cbd5e1;border-radius:18px;padding:28px;text-align:center;color:var(--sub)}.day{font-size:13px;color:var(--sub);margin:12px 4px 7px}.tx{display:flex;align-items:center;gap:12px;padding:14px;background:#fff;border:1px solid var(--line);border-radius:16px;margin-bottom:8px;width:100%;text-align:left}.dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto}.txm{flex:1;min-width:0}.txn{font-weight:700;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.meta{font-size:12px;color:var(--sub);margin-top:3px;display:block}.amt{font-weight:800;white-space:nowrap}.overlay{position:fixed;inset:0;z-index:50;background:rgba(17,24,39,.55);display:flex;align-items:flex-end;justify-content:center}.modal{width:min(720px,100%);max-height:92vh;overflow:auto;background:#fff;border-radius:24px 24px 0 0;padding:18px 18px calc(18px + env(safe-area-inset-bottom))}.modal h2{margin:4px 0 18px}.field{margin-bottom:13px}.field label{display:block;font-size:13px;color:var(--sub);margin-bottom:6px}.field input,.field select,.field textarea{width:100%;border:1px solid #d1d5db;border-radius:13px;padding:13px;background:#fff}.field textarea{min-height:78px}.btns{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}.btn{border:0;border-radius:14px;padding:13px;font-weight:750}.dark{background:#111827;color:#fff}.light{background:#f3f4f6}.danger{background:#fee2e2;color:#991b1b}.settings{display:grid;gap:10px}.settings button{width:100%;text-align:left;border:1px solid var(--line);background:#fff;border-radius:14px;padding:14px}.lock{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:linear-gradient(180deg,#111827,#1f2937)}.lockcard{width:min(420px,100%);background:#fff;border-radius:24px;padding:24px;box-shadow:0 22px 60px rgba(0,0,0,.25)}.logo{width:58px;height:58px;border-radius:18px;background:#111827;color:#fff;display:grid;place-items:center;font-size:28px;margin-bottom:16px}.lockcard h1{margin:0 0 8px}.lockcard p,.note{color:var(--sub);font-size:13px;line-height:1.5}.pin{width:100%;font-size:24px;letter-spacing:8px;text-align:center;border:1px solid #d1d5db;border-radius:14px;padding:14px;margin:8px 0}.full{width:100%}.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:90;background:#111827;color:#fff;padding:11px 15px;border-radius:999px;font-size:13px;box-shadow:var(--shadow)}@media(min-width:720px){.overlay{align-items:center}.modal{border-radius:24px;max-height:86vh}}
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#111827">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="나의 가계부">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; worker-src 'self'; manifest-src 'self'; upgrade-insecure-requests">
+  <link rel="manifest" href="./manifest.json">
+  <link rel="stylesheet" href="./style.css">
+  <title>나의 가계부</title>
 </head>
 <body>
-<section id="setup" class="lock hidden"><div class="lockcard"><div class="logo">₩</div><h1>나의 가계부</h1><p>처음 한 번만 PIN을 설정하세요. 기록은 이 기기 브라우저 안에 암호화되어 저장됩니다.</p><input id="p1" class="pin" type="password" inputmode="numeric" maxlength="8" placeholder="PIN 4~8자리"><input id="p2" class="pin" type="password" inputmode="numeric" maxlength="8" placeholder="PIN 다시 입력"><button id="setupBtn" class="btn dark full">가계부 시작하기</button><div class="note">PIN을 잊으면 복구할 수 없습니다. 브라우저 데이터를 지우기 전에 암호화 백업을 저장하세요.</div></div></section>
-<section id="locked" class="lock hidden"><div class="lockcard"><div class="logo">₩</div><h1>가계부 잠금</h1><p>PIN을 입력하면 저장된 가계부를 복호화합니다.</p><input id="upin" class="pin" type="password" inputmode="numeric" maxlength="8" placeholder="PIN"><button id="unlockBtn" class="btn dark full">열기</button><button id="restoreLockBtn" class="btn light full" style="margin-top:10px">백업 파일로 복원</button><input id="restoreLockInput" type="file" accept="application/json,.json" class="hidden"></div></section>
-<main id="app" class="wrap hidden"><header class="top"><div class="brand">나의 가계부</div><button id="settingsBtn" class="icon">⚙️</button></header><div class="content"><div class="month"><button id="prev">‹</button><div id="monthLabel"></div><button id="next">›</button></div><section class="sum"><div class="card"><div class="lab">이번 달 수입</div><div id="sumIn" class="money inc">0원</div></div><div class="card"><div class="lab">이번 달 지출</div><div id="sumOut" class="money exp">0원</div></div><div class="card"><div class="lab">이번 달 잔액</div><div id="sumBal" class="money">0원</div></div></section><div class="actions"><button id="addOut" class="primary expb">− 지출 기록</button><button id="addIn" class="primary incb">＋ 수입 기록</button></div><div class="section"><span>날짜별 내역</span><span id="count" class="lab"></span></div><div id="list"></div></div></main>
-<div id="txOverlay" class="overlay hidden"><div class="modal"><h2 id="txTitle">지출 기록</h2><input id="id" type="hidden"><input id="type" type="hidden"><div class="field"><label>날짜</label><input id="date" type="date"></div><div class="field"><label>금액</label><input id="amount" type="number" min="0" step="1" inputmode="numeric" placeholder="예: 12000"></div><div class="field"><label>카테고리</label><select id="cat"></select></div><div id="payField" class="field"><label>결제수단</label><select id="pay"><option>카드</option><option>현금</option><option>계좌이체</option><option>간편결제</option><option>기타</option></select></div><div class="field"><label>내용</label><input id="title" maxlength="60" placeholder="예: 점심, 월급"></div><div class="field"><label>메모</label><textarea id="memo" maxlength="200" placeholder="선택사항"></textarea></div><div id="delWrap" class="hidden"><button id="deleteBtn" class="btn danger full">이 내역 삭제</button></div><div class="btns"><button id="cancelBtn" class="btn light">취소</button><button id="saveBtn" class="btn dark">저장</button></div></div></div>
-<div id="settingsOverlay" class="overlay hidden"><div class="modal"><h2>설정 · 백업</h2><div class="settings"><button id="backupBtn"><b>암호화 백업 저장</b><br><span class="lab">PIN이 있어야 열 수 있는 JSON 백업</span></button><button id="csvBtn"><b>CSV 내보내기</b><br><span class="lab">엑셀에서 열 수 있지만 암호화되지 않음</span></button><button id="restoreBtn"><b>백업 복원</b><br><span class="lab">현재 데이터를 백업 파일 내용으로 교체</span></button><input id="restoreInput" type="file" accept="application/json,.json" class="hidden"><button id="lockBtn"><b>지금 잠그기</b><br><span class="lab">복호화된 데이터를 메모리에서 제거</span></button></div><div class="note">실제 가계부 기록은 GitHub에 저장되지 않습니다. 이 기기의 브라우저 저장소에 암호화되어 보관됩니다.</div><button id="closeSettings" class="btn dark full" style="margin-top:18px">닫기</button></div></div>
-<div id="toast" class="toast hidden"></div>
-<script>
-(()=>{const S={salt:'budget_salt_v1',vault:'budget_vault_v1'},outCats=['식비','교통','주거/공과금','쇼핑','여가','건강','교육','경조사','구독','기타'],inCats=['급여','용돈/지원','부수입','환급','투자/이자','기타'];let key=null,data=null,view=new Date(),hiddenAt=0;view.setDate(1);const $=x=>document.getElementById(x),enc=new TextEncoder(),dec=new TextDecoder();const b64=b=>btoa(String.fromCharCode(...new Uint8Array(b))),unb=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));async function dkey(pin,salt){const m=await crypto.subtle.importKey('raw',enc.encode(pin),'PBKDF2',false,['deriveKey']);return crypto.subtle.deriveKey({name:'PBKDF2',salt:unb(salt),iterations:250000,hash:'SHA-256'},m,{name:'AES-GCM',length:256},false,['encrypt','decrypt'])}async function encrypt(o,k){const iv=crypto.getRandomValues(new Uint8Array(12)),c=await crypto.subtle.encrypt({name:'AES-GCM',iv},k,enc.encode(JSON.stringify(o)));return{iv:b64(iv),data:b64(c)}}async function decrypt(v,k){const p=await crypto.subtle.decrypt({name:'AES-GCM',iv:unb(v.iv)},k,unb(v.data));return JSON.parse(dec.decode(p))}async function persist(){localStorage.setItem(S.vault,JSON.stringify(await encrypt(data,key)))}function only(id){['setup','locked','app'].forEach(x=>$(x).classList.add('hidden'));$(id).classList.remove('hidden')}function toast(t){$('toast').textContent=t;$('toast').classList.remove('hidden');setTimeout(()=>$('toast').classList.add('hidden'),1800)}function valid(p){return /^\d{4,8}$/.test(p)}async function setup(){const a=$('p1').value.trim(),b=$('p2').value.trim();if(!valid(a))return toast('PIN은 숫자 4~8자리로 입력하세요.');if(a!==b)return toast('두 PIN이 서로 다릅니다.');const salt=b64(crypto.getRandomValues(new Uint8Array(16)));key=await dkey(a,salt);data={version:1,createdAt:new Date().toISOString(),transactions:[]};localStorage.setItem(S.salt,salt);await persist();$('p1').value=$('p2').value='';openApp()}async function unlock(){try{const salt=localStorage.getItem(S.salt),v=localStorage.getItem(S.vault);if(!salt||!v)return only('setup');const k=await dkey($('upin').value.trim(),salt),plain=await decrypt(JSON.parse(v),k);key=k;data=plain;$('upin').value='';openApp()}catch(e){toast('PIN이 올바르지 않습니다.')}}function openApp(){only('app');view=new Date();view.setDate(1);render()}function lock(){key=null;data=null;$('settingsOverlay').classList.add('hidden');only('locked')}const won=n=>new Intl.NumberFormat('ko-KR').format(Math.round(n))+'원',pad=n=>String(n).padStart(2,'0'),ymd=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`,mk=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}`;function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}function render(){if(!data)return;const m=mk(view),tx=[...data.transactions].filter(t=>t.date.startsWith(m)).sort((a,b)=>b.date.localeCompare(a.date)||(b.updatedAt||'').localeCompare(a.updatedAt||'')),si=tx.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0),so=tx.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0);$('monthLabel').textContent=`${view.getFullYear()}년 ${view.getMonth()+1}월`;$('sumIn').textContent=won(si);$('sumOut').textContent=won(so);$('sumBal').textContent=won(si-so);$('sumBal').style.color=si-so<0?'var(--red)':'var(--text)';$('count').textContent=`${tx.length}건`;const box=$('list');box.innerHTML='';if(!tx.length){box.innerHTML='<div class="empty">이 달에 기록된 내역이 없습니다.<br>위 버튼으로 첫 내역을 추가해보세요.</div>';return}const g={};tx.forEach(t=>(g[t.date]??=[]).push(t));Object.keys(g).sort((a,b)=>b.localeCompare(a)).forEach(date=>{const d=new Date(date+'T00:00:00'),w=['일','월','화','수','목','금','토'][d.getDay()],wrap=document.createElement('div');wrap.innerHTML=`<div class="day">${d.getMonth()+1}월 ${d.getDate()}일 (${w})</div>`;g[date].forEach(t=>{const row=document.createElement('button'),c=t.type==='expense'?'var(--red)':'var(--green)',sign=t.type==='expense'?'-':'+';row.className='tx';row.innerHTML=`<span class="dot" style="background:${c}"></span><span class="txm"><span class="txn">${esc(t.title||t.category)}</span><span class="meta">${esc(t.category)}${t.payment?' · '+esc(t.payment):''}</span></span><span class="amt" style="color:${c}">${sign}${won(t.amount)}</span>`;row.onclick=()=>openTx(t.type,t);wrap.appendChild(row)});box.appendChild(wrap)})}function fillCats(type,val){const a=type==='expense'?outCats:inCats;$('cat').innerHTML=a.map(c=>`<option ${c===val?'selected':''}>${c}</option>`).join('')}function openTx(type,t=null){$('type').value=type;$('id').value=t?.id||'';$('txTitle').textContent=t?'내역 수정':type==='expense'?'지출 기록':'수입 기록';$('date').value=t?.date||ymd(new Date());$('amount').value=t?.amount??'';$('title').value=t?.title??'';$('memo').value=t?.memo??'';$('pay').value=t?.payment??'카드';fillCats(type,t?.category);$('payField').classList.toggle('hidden',type==='income');$('delWrap').classList.toggle('hidden',!t);$('txOverlay').classList.remove('hidden');setTimeout(()=>$('amount').focus(),80)}async function save(){const type=$('type').value,amount=Number($('amount').value),date=$('date').value;if(!date)return toast('날짜를 선택하세요.');if(!Number.isFinite(amount)||amount<=0)return toast('금액을 입력하세요.');const id=$('id').value||crypto.randomUUID(),old=data.transactions.find(t=>t.id===id),item={id,type,date,amount,category:$('cat').value,payment:type==='expense'?$('pay').value:'',title:$('title').value.trim()||$('cat').value,memo:$('memo').value.trim(),createdAt:old?.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString()},i=data.transactions.findIndex(t=>t.id===id);i>=0?data.transactions[i]=item:data.transactions.push(item);await persist();$('txOverlay').classList.add('hidden');view=new Date(date+'T00:00:00');view.setDate(1);render();toast('저장했습니다.')}async function del(){const id=$('id').value;if(!id||!confirm('이 내역을 삭제할까요?'))return;data.transactions=data.transactions.filter(t=>t.id!==id);await persist();$('txOverlay').classList.add('hidden');render();toast('삭제했습니다.')}function download(name,blob){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1500)}function backup(){const p={app:'private-household-budget',version:1,exportedAt:new Date().toISOString(),salt:localStorage.getItem(S.salt),vault:JSON.parse(localStorage.getItem(S.vault))};download(`가계부_암호화백업_${ymd(new Date()).replaceAll('-','')}.json`,new Blob([JSON.stringify(p,null,2)],{type:'application/json'}));toast('암호화 백업을 저장했습니다.')}function csv(){const r=[['구분','날짜','카테고리','내용','금액','결제수단','메모']];[...data.transactions].sort((a,b)=>a.date.localeCompare(b.date)).forEach(t=>r.push([t.type==='expense'?'지출':'수입',t.date,t.category,t.title,t.amount,t.payment||'',t.memo||'']));const q=v=>`"${String(v??'').replaceAll('"','""')}"`,c='\uFEFF'+r.map(x=>x.map(q).join(',')).join('\r\n');download(`가계부_${ymd(new Date()).replaceAll('-','')}.csv`,new Blob([c],{type:'text/csv;charset=utf-8'}));toast('CSV를 저장했습니다.')}async function restore(f){try{const o=JSON.parse(await f.text());if(o.app!=='private-household-budget'||!o.salt||!o.vault)throw 0;localStorage.setItem(S.salt,o.salt);localStorage.setItem(S.vault,JSON.stringify(o.vault));key=data=null;$('settingsOverlay').classList.add('hidden');only('locked');toast('복원했습니다. 백업 당시 PIN을 입력하세요.')}catch(e){toast('올바른 백업 파일이 아닙니다.')}}$('setupBtn').onclick=setup;$('unlockBtn').onclick=unlock;$('upin').addEventListener('keydown',e=>e.key==='Enter'&&unlock());$('p2').addEventListener('keydown',e=>e.key==='Enter'&&setup());$('addOut').onclick=()=>openTx('expense');$('addIn').onclick=()=>openTx('income');$('cancelBtn').onclick=()=>$('txOverlay').classList.add('hidden');$('saveBtn').onclick=save;$('deleteBtn').onclick=del;$('prev').onclick=()=>{view.setMonth(view.getMonth()-1);render()};$('next').onclick=()=>{view.setMonth(view.getMonth()+1);render()};$('settingsBtn').onclick=()=>$('settingsOverlay').classList.remove('hidden');$('closeSettings').onclick=()=>$('settingsOverlay').classList.add('hidden');$('lockBtn').onclick=lock;$('backupBtn').onclick=backup;$('csvBtn').onclick=csv;$('restoreBtn').onclick=()=>$('restoreInput').click();$('restoreInput').onchange=e=>{if(e.target.files[0])restore(e.target.files[0]);e.target.value=''};$('restoreLockBtn').onclick=()=>$('restoreLockInput').click();$('restoreLockInput').onchange=e=>{if(e.target.files[0])restore(e.target.files[0]);e.target.value=''};document.addEventListener('visibilitychange',()=>{if(document.hidden)hiddenAt=Date.now();else if(data&&hiddenAt&&Date.now()-hiddenAt>120000)lock()});if(!window.crypto?.subtle)alert('최신 Safari/Chrome에서 열어주세요.');only(localStorage.getItem(S.salt)&&localStorage.getItem(S.vault)?'locked':'setup');if('serviceWorker'in navigator)addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));})();
-</script>
-</body></html>
+  <section id="setup" class="lock hidden">
+    <div class="lockcard">
+      <div class="logo">₩</div>
+      <h1>나의 가계부</h1>
+      <p>처음 한 번만 비밀번호를 설정하세요. 기록은 이 기기 브라우저 안에 암호화되어 저장됩니다.</p>
+      <label class="sr-only" for="p1">새 비밀번호</label>
+      <input id="p1" class="password" type="password" autocomplete="new-password" maxlength="64" placeholder="비밀번호 10자 이상">
+      <label class="sr-only" for="p2">비밀번호 확인</label>
+      <input id="p2" class="password" type="password" autocomplete="new-password" maxlength="64" placeholder="비밀번호 다시 입력">
+      <button id="setupBtn" class="btn dark full">가계부 시작하기</button>
+      <div class="note">10~64자를 사용하세요. 영문/한글 등 문자와 숫자를 함께 쓰거나, 14자 이상의 긴 암호문구를 권장합니다. 비밀번호를 잊으면 복구할 수 없습니다.</div>
+    </div>
+  </section>
+
+  <section id="locked" class="lock hidden">
+    <div class="lockcard">
+      <div class="logo">₩</div>
+      <h1>가계부 잠금</h1>
+      <p>비밀번호를 입력하면 저장된 가계부를 복호화합니다.</p>
+      <label class="sr-only" for="upin">비밀번호</label>
+      <input id="upin" class="password" type="password" autocomplete="current-password" maxlength="64" placeholder="비밀번호">
+      <button id="unlockBtn" class="btn dark full">열기</button>
+      <button id="restoreLockBtn" class="btn light full gap-top">백업 파일로 복원</button>
+      <input id="restoreLockInput" type="file" accept="application/json,.json" class="hidden">
+      <div id="legacyNotice" class="note hidden">이전 버전 PIN도 로그인할 수 있습니다. 로그인 후 설정에서 더 강한 비밀번호로 변경하세요.</div>
+    </div>
+  </section>
+
+  <main id="app" class="wrap hidden">
+    <header class="top">
+      <div class="brand">나의 가계부</div>
+      <button id="settingsBtn" class="icon" aria-label="설정">⚙️</button>
+    </header>
+    <div class="content">
+      <div class="month">
+        <button id="prev" aria-label="이전 달">‹</button>
+        <div id="monthLabel"></div>
+        <button id="next" aria-label="다음 달">›</button>
+      </div>
+      <section class="sum">
+        <div class="card"><div class="lab">이번 달 수입</div><div id="sumIn" class="money inc">0원</div></div>
+        <div class="card"><div class="lab">이번 달 지출</div><div id="sumOut" class="money exp">0원</div></div>
+        <div class="card"><div class="lab">이번 달 잔액</div><div id="sumBal" class="money">0원</div></div>
+      </section>
+      <div class="actions">
+        <button id="addOut" class="primary expb">− 지출 기록</button>
+        <button id="addIn" class="primary incb">＋ 수입 기록</button>
+      </div>
+      <div class="section"><span>날짜별 내역</span><span id="count" class="lab"></span></div>
+      <div id="list"></div>
+    </div>
+  </main>
+
+  <div id="txOverlay" class="overlay hidden">
+    <div class="modal">
+      <h2 id="txTitle">지출 기록</h2>
+      <input id="id" type="hidden"><input id="type" type="hidden">
+      <div class="field"><label for="date">날짜</label><input id="date" type="date"></div>
+      <div class="field"><label for="amount">금액</label><input id="amount" type="number" min="0" step="1" inputmode="numeric" placeholder="예: 12000"></div>
+      <div class="field"><label for="cat">카테고리</label><select id="cat"></select></div>
+      <div id="payField" class="field"><label for="pay">결제수단</label><select id="pay"><option>카드</option><option>현금</option><option>계좌이체</option><option>간편결제</option><option>기타</option></select></div>
+      <div class="field"><label for="title">내용</label><input id="title" maxlength="60" placeholder="예: 점심, 월급"></div>
+      <div class="field"><label for="memo">메모</label><textarea id="memo" maxlength="200" placeholder="선택사항"></textarea></div>
+      <div id="delWrap" class="hidden"><button id="deleteBtn" class="btn danger full">이 내역 삭제</button></div>
+      <div class="btns"><button id="cancelBtn" class="btn light">취소</button><button id="saveBtn" class="btn dark">저장</button></div>
+    </div>
+  </div>
+
+  <div id="settingsOverlay" class="overlay hidden">
+    <div class="modal">
+      <h2>설정 · 보안 · 백업</h2>
+      <div class="settings">
+        <button id="changePasswordBtn"><b>비밀번호 변경</b><br><span class="lab">이전 PIN 사용자도 여기서 강화할 수 있습니다</span></button>
+        <button id="backupBtn"><b>암호화 백업 저장</b><br><span class="lab">비밀번호가 있어야 열 수 있는 JSON 백업</span></button>
+        <button id="csvBtn"><b>CSV 내보내기</b><br><span class="lab">암호화되지 않은 평문 파일이므로 주의</span></button>
+        <button id="restoreBtn"><b>백업 복원</b><br><span class="lab">현재 데이터를 백업 파일 내용으로 교체</span></button>
+        <input id="restoreInput" type="file" accept="application/json,.json" class="hidden">
+        <button id="lockBtn"><b>지금 잠그기</b><br><span class="lab">복호화된 데이터를 메모리에서 즉시 제거</span></button>
+      </div>
+      <div class="note">30초 이상 다른 앱으로 이동하면 잠기고, 앱을 연 상태에서도 5분간 조작이 없으면 자동으로 잠깁니다. 실제 가계부 기록은 GitHub에 저장되지 않습니다.</div>
+      <button id="closeSettings" class="btn dark full gap-top-lg">닫기</button>
+    </div>
+  </div>
+
+  <div id="passwordOverlay" class="overlay hidden">
+    <div class="modal small-modal">
+      <h2>비밀번호 변경</h2>
+      <div class="field"><label for="currentPassword">현재 비밀번호/PIN</label><input id="currentPassword" type="password" autocomplete="current-password" maxlength="64"></div>
+      <div class="field"><label for="newPassword">새 비밀번호</label><input id="newPassword" type="password" autocomplete="new-password" maxlength="64" placeholder="10자 이상"></div>
+      <div class="field"><label for="newPassword2">새 비밀번호 확인</label><input id="newPassword2" type="password" autocomplete="new-password" maxlength="64"></div>
+      <div class="note">새 비밀번호부터 PBKDF2-SHA256 600,000회와 AES-GCM 256비트로 다시 암호화합니다.</div>
+      <div class="btns"><button id="cancelPasswordBtn" class="btn light">취소</button><button id="savePasswordBtn" class="btn dark">변경</button></div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+  <script src="./app.js" defer></script>
+</body>
+</html>
