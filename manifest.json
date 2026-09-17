@@ -1,0 +1,10 @@
+{
+  "name": "나의 가계부",
+  "short_name": "가계부",
+  "description": "기기 안에 암호화 저장되는 개인용 가계부",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f6f7fb",
+  "theme_color": "#111827"
+}
