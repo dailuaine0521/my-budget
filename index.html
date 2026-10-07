@@ -10,7 +10,7 @@
   <meta name="referrer" content="no-referrer">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://cdn.jsdelivr.net; style-src 'self'; img-src 'self' data: blob:; connect-src 'self' https://cdn.jsdelivr.net https://tessdata.projectnaptha.com https://nrooydumvpwggkrdghyv.supabase.co; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; worker-src 'self' blob: https://cdn.jsdelivr.net; manifest-src 'self'; upgrade-insecure-requests">
   <link rel="manifest" href="./manifest.json">
-  <link rel="stylesheet" href="./style-v16.css">
+  <link rel="stylesheet" href="./style-v17.css">
   <title>나의 가계부</title>
 </head>
 <body>
@@ -164,9 +164,18 @@
       <div class="note gap-top">두 기기에서 동시에 수정해도 거래 내역은 최신 수정 시각을 기준으로 병합합니다. 비밀번호를 한 기기에서 바꿨다면 다른 기기는 “클라우드 데이터로 이 기기 교체” 후 새 가계부 비밀번호로 열어주세요.</div>
     </div>
   </div></div>
+  <div id="categoryDrillOverlay" class="overlay hidden" role="presentation">
+    <div class="modal category-drill-modal" role="dialog" aria-modal="true" aria-labelledby="categoryDrillTitle">
+      <div class="modal-head"><div><div class="eyebrow" id="categoryDrillPeriod"></div><h2 id="categoryDrillTitle">카테고리 세부 지출</h2></div><button type="button" class="close-x" id="categoryDrillClose" aria-label="세부 지출 닫기">×</button></div>
+      <div class="drill-overview"><span>선택한 카테고리 총지출</span><strong id="categoryDrillTotal">0원</strong><small id="categoryDrillCount">0건</small></div>
+      <p class="drill-instruction">분류를 누르면 해당 거래 내역이 펼쳐집니다. 거래를 누르면 수정할 수 있습니다.</p>
+      <div id="categoryDrillRows"></div>
+      <div id="categoryDrillExtra"></div>
+    </div>
+  </div>
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
   <script src="./budget-features-v16.js" defer></script>
-  <script src="./app-v16.js" defer></script>
+  <script src="./app-v17.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js" defer></script>
 </body>
 </html>
