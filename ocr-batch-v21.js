@@ -41,7 +41,7 @@
   }
   function moneyCandidates(line){
     const stripped=cleanDateTime(line).replace(/(?:20\d{2}년|20\d{2}\s*(?:[./-]\s*\d{1,2})?)/g,s=>s.length>=4?' ':s);
-    const re=/(?:^|[^\dA-Za-z])([+\-−]?)([₩￦]?)\s*(\d{1,3}(?:,\d{3})+|\d{3,8})(\s*원)?(?![\d.\/:-])/g;
+    const re=/(?:^|[^\dA-Za-z가-힣])([+\-−]?)([₩￦]?)\s*(\d{1,3}(?:,\d{3})+|\d{3,8})(\s*원)?(?![\d.\/:-])/g;
     const candidates=[];
     for(const m of stripped.matchAll(re)){
       const start=m.index+(m[0].length-m[0].trimStart().length),value=Number(m[3].replaceAll(',',''));
@@ -105,14 +105,14 @@
       }
       const amount=amounts[0],onLine=cleanMerchant(line,amount);
       // The nearest merchant description belongs to this amount only.
-      const preceding=pending&&i-pending.index<=2&&pending.date===date&&!justSawAmount?pending.text:'';
+      const preceding=pending&&i-pending.index<=2&&!justSawAmount?pending.text:'';
       const title=meaningfulName(onLine)?onLine:preceding;
       if(!title&&!rowDate&&!preceding){pending=null;continue;}
       const type=inferType(line+' '+(preceding||''));
       const category=type==='income'?(incomeCats.includes('환급')&&/환불|환급/.test(line)?'환급':'기타')
         :(api?.detectCategory?.(title||line)||'기타');
       const detail=type==='expense'?(api?.detectDetail?.(category,title+' '+line)||''):'';
-      const pay=type==='expense'?(api?.detectPayment?.(line)||'카드'):'';
+      const pay=type==='expense'?(/카카오\s*페이|네이버\s*페이|토스|toss|지역화폐|지역사랑상품권|지역상품권/i.test(line)?api?.detectPayment?.(line)||'간편결제':/계좌이체|송금|이체/.test(line)?'계좌이체':/현금/.test(line)?'현금':'카드'):'';
       const meal=category==='식비'?api?.detectMeal?.(title+' '+line)||'저녁':'';
       const cleanTitle=title||'거래 내용 확인 필요';
       result.push({selected:!!title,date,assumedDate:!dateKnown,title:cleanTitle,amount:amount.value,type,category,detail,
