@@ -210,6 +210,7 @@
   async function deleteBudgetRule(index){if(index<0||index>=data.settings.budgetRules.length)return;data.settings.budgetRules.splice(index,1);data.settingsUpdatedAt=new Date().toISOString();await persist();renderCategoryBudgetManager();renderAll();toast('항목별 예산을 삭제했습니다.')}
 
   function renderHistory(tx){$('historyCount').textContent=`${tx.length}건`;renderCategorySummary(tx);renderCalendar(tx);renderList(tx)}
+  let categoryDrillReturnFocus=null;
   function categoryDrillSummary(all,selectedMonth,category){
   const rows=(all||[]).filter(t=>t?.type==='expense'&&t.category===category&&String(t.date||'').startsWith(selectedMonth));
   const groups=new Map(),total=rows.reduce((n,t)=>n+(Number(t.amount)||0),0);
