@@ -1,5 +1,5 @@
-const CACHE = "private-budget-v14";
-const ASSETS = ["./", "./index.html", "./manifest.json", "./style.css", "./app-v14.js"];
+const CACHE = "private-budget-v15";
+const ASSETS = ["./", "./index.html", "./manifest.json", "./style-v15.css", "./app-v14.js"];
 
 self.addEventListener("install", event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)));
@@ -18,7 +18,9 @@ self.addEventListener("fetch", event => {
   }
   event.respondWith(caches.match(event.request).then(cached => {
     const network=fetch(event.request).then(response => {
-      if(response.ok && new URL(event.request.url).origin===self.location.origin){const copy=response.clone();caches.open(CACHE).then(cache=>cache.put(event.request,copy))}
+      if(response.ok && new URL(event.request.url).origin===self.location.origin){
+        const copy=response.clone();caches.open(CACHE).then(cache=>cache.put(event.request,copy));
+      }
       return response;
     });
     return cached||network;
