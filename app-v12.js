@@ -76,7 +76,21 @@
   async function ensureCloudSession(){if(!cloudSession?.access_token)return;const exp=Number(cloudSession.expires_at||0);if(exp&&exp>Date.now()/1000+90)return;if(!cloudSession.refresh_token){cloudSession=null;return}const next=await cloudRequest('/auth/v1/token?grant_type=refresh_token',{method:'POST',body:{refresh_token:cloudSession.refresh_token},auth:false});cloudSession=compactSession(next);if(key)await saveCloudSessionLocal()}
 
   async function cloudFetchVault(){if(!cloudSession?.user?.id)return null;const rows=await cloudRequest('/rest/v1/budget_vaults?select=salt,kdf,vault,revision,updated_at&user_id=eq.'+encodeURIComponent(cloudSession.user.id));return Array.isArray(rows)&&rows.length?rows[0]:null}
-  async function cloudWriteVault(revision){const vault=JSON.parse(localStorage.getItem(STORAGE.vault)||'null'),salt=localStorage.getItem(STORAGE.salt);if(!vault||!salt)throw new Error('로컬 가계부가 없습니다.');const payload={user_id:cloudSession.user.id,salt,kdf:normalizedKdf(currentKdf()),vault,revision:Number(revision)||1,updated_at:new Date().toISOString()};const rows=await cloudRequest('/rest/v1/budget_vaults?on_conflict=user_id',{method:'POST',body:payload,headers:{Prefer:'resolution=merge-duplicates,return=representation'}});const saved=Array.isArray(rows)&&rows[0]?rows[0]:payload;setLocalRevision(saved.revision||payload.revision);return saved}
+  async function cloudWriteVault(expectedRevision){
+    const vault=JSON.parse(localStorage.getItem(STORAGE.vault)||'null'),salt=localStorage.getItem(STORAGE.salt);
+    if(!vault||!salt)throw new Error('로컬 가계부가 없습니다.');
+    const expected=Math.max(0,Number(expectedRevision)||0),next=expected+1;
+    const payload={user_id:cloudSession.user.id,salt,kdf:normalizedKdf(currentKdf()),vault,revision:next,updated_at:new Date().toISOString()};
+    let rows;
+    if(expected===0){
+      try{rows=await cloudRequest('/rest/v1/budget_vaults',{method:'POST',body:payload,headers:{Prefer:'return=representation'}})}
+      catch(e){if(String(e?.message||'').toLowerCase().includes('duplicate')){const err=new Error('SYNC_CONFLICT');err.code='SYNC_CONFLICT';throw err}throw e}
+    }else{
+      rows=await cloudRequest('/rest/v1/budget_vaults?user_id=eq.'+encodeURIComponent(cloudSession.user.id)+'&revision=eq.'+expected,{method:'PATCH',body:payload,headers:{Prefer:'return=representation'}});
+      if(!Array.isArray(rows)||rows.length===0){const err=new Error('SYNC_CONFLICT');err.code='SYNC_CONFLICT';throw err}
+    }
+    const saved=Array.isArray(rows)&&rows[0]?rows[0]:payload;setLocalRevision(saved.revision||next);return saved
+  }
 
   function mergeData(localData,remoteData){
     const l=JSON.parse(JSON.stringify(localData||{})),r=JSON.parse(JSON.stringify(remoteData||{})),tomb=new Map(),tx=new Map();
@@ -92,8 +106,24 @@
 
   async function syncCloudNow(reason='manual'){
     if(!cloudSession||!key||!data)return;if(cloudSyncing){cloudSyncPending=true;return}cloudSyncing=true;cloudSyncPending=false;updateCloudUi('동기화 중…','warn');
-    try{await ensureCloudSession();const remote=await cloudFetchVault();if(!remote){await cloudWriteVault(1);updateCloudUi('동기화 완료','ok');return}if(!sameCrypto(remote))throw new Error('다른 기기에서 가계부 비밀번호가 변경되었습니다.');const remoteData=await decryptObject(remote.vault,key);data=mergeData(data,remoteData);ensureDataShape();setLocalRevision(remote.revision||0);await persist({sync:false,touch:false});await cloudWriteVault((Number(remote.revision)||0)+1);renderAll();updateCloudUi('방금 동기화됨','ok')}
-    catch(e){updateCloudUi(e?.message||'동기화 실패','error');if(reason==='manual')toast(e?.message||'동기화에 실패했습니다.',3500)}
+    try{
+      await ensureCloudSession();
+      let synced=false;
+      for(let attempt=0;attempt<4&&!synced;attempt++){
+        const remote=await cloudFetchVault();
+        if(!remote){
+          try{await cloudWriteVault(0);synced=true;break}catch(e){if(e?.code==='SYNC_CONFLICT')continue;throw e}
+        }
+        if(!sameCrypto(remote))throw new Error('다른 기기에서 가계부 비밀번호가 변경되었습니다.');
+        const remoteData=await decryptObject(remote.vault,key);
+        data=mergeData(data,remoteData);ensureDataShape();setLocalRevision(remote.revision||0);
+        await persist({sync:false,touch:false});
+        try{await cloudWriteVault(Number(remote.revision)||0);synced=true}
+        catch(e){if(e?.code==='SYNC_CONFLICT')continue;throw e}
+      }
+      if(!synced)throw new Error('동시에 변경된 내용이 많아 동기화를 다시 시도해야 합니다.');
+      renderAll();updateCloudUi('방금 동기화됨','ok');
+    }catch(e){updateCloudUi(e?.message||'동기화 실패','error');if(reason==='manual')toast(e?.message||'동기화에 실패했습니다.',3500)}
     finally{cloudSyncing=false;if(cloudSyncPending){cloudSyncPending=false;scheduleCloudSync(300)}}
   }
   function scheduleCloudSync(delay=700){if(!cloudSession||!key||!data)return;clearTimeout(cloudSyncTimer);cloudSyncTimer=setTimeout(()=>syncCloudNow('auto'),delay)}
@@ -103,7 +133,7 @@
   async function acceptCloudSession(raw){
     cloudSession=compactSession(raw);if(!cloudSession?.access_token||!cloudSession?.user?.id)throw new Error('로그인 세션을 만들지 못했습니다.');if(key)await saveCloudSessionLocal();updateCloudUi('연결됨','ok');
     if(cloudRestoreMode){const remote=await cloudFetchVault();if(!remote)throw new Error('이 계정에 저장된 가계부가 없습니다.');await installRemoteVault(remote);cloudRestoreMode=false;return}
-    const remote=await cloudFetchVault();if(!remote){await cloudWriteVault(1);updateCloudUi('첫 동기화 완료','ok');toast('클라우드 동기화를 연결했습니다.')}else if(sameCrypto(remote)){await syncCloudNow('manual');toast('기기 간 동기화를 연결했습니다.')}else{updateCloudUi('기존 클라우드 가계부 발견','warn');toast('클라우드에 다른 암호화 가계부가 있습니다. 필요하면 “클라우드 데이터로 이 기기 교체”를 사용하세요.',4500)}
+    const remote=await cloudFetchVault();if(!remote){await cloudWriteVault(0);updateCloudUi('첫 동기화 완료','ok');toast('클라우드 동기화를 연결했습니다.')}else if(sameCrypto(remote)){await syncCloudNow('manual');toast('기기 간 동기화를 연결했습니다.')}else{updateCloudUi('기존 클라우드 가계부 발견','warn');toast('클라우드에 다른 암호화 가계부가 있습니다. 필요하면 “클라우드 데이터로 이 기기 교체”를 사용하세요.',4500)}
   }
 
   async function cloudLogin(){const email=$('cloudEmail').value.trim(),password=$('cloudPassword').value;if(!email||!password)return toast('이메일과 클라우드 계정 비밀번호를 입력하세요.');try{updateCloudUi('로그인 중…','warn');const session=await cloudRequest('/auth/v1/token?grant_type=password',{method:'POST',body:{email,password},auth:false});$('cloudPassword').value='';await acceptCloudSession(session)}catch(e){updateCloudUi();toast('클라우드 로그인 실패: '+(e?.message||''),3800)}}
