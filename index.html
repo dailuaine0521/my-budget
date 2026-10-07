@@ -8,13 +8,13 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="나의 가계부">
   <meta name="referrer" content="no-referrer">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://cdn.jsdelivr.net; style-src 'self'; img-src 'self' data: blob:; connect-src 'self' https://cdn.jsdelivr.net https://tessdata.projectnaptha.com; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; worker-src 'self' blob: https://cdn.jsdelivr.net; manifest-src 'self'; upgrade-insecure-requests">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://cdn.jsdelivr.net; style-src 'self'; img-src 'self' data: blob:; connect-src 'self' https://cdn.jsdelivr.net https://tessdata.projectnaptha.com https://nrooydumvpwggkrdghyv.supabase.co; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; worker-src 'self' blob: https://cdn.jsdelivr.net; manifest-src 'self'; upgrade-insecure-requests">
   <link rel="manifest" href="./manifest.json">
   <link rel="stylesheet" href="./style.css">
   <title>나의 가계부</title>
 </head>
 <body>
-  <section id="setup" class="lock hidden"><div class="lockcard"><div class="logo">₩</div><h1>나의 가계부</h1><p>처음 한 번만 비밀번호를 설정하세요. 기록은 이 기기 브라우저 안에 암호화되어 저장됩니다.</p><input id="p1" class="password" type="password" autocomplete="new-password" maxlength="64" placeholder="비밀번호 10자 이상"><input id="p2" class="password" type="password" autocomplete="new-password" maxlength="64" placeholder="비밀번호 다시 입력"><button id="setupBtn" class="btn dark full">가계부 시작하기</button><div class="note">비밀번호를 잊으면 기록을 복구할 수 없습니다.</div></div></section>
+  <section id="setup" class="lock hidden"><div class="lockcard"><div class="logo">₩</div><h1>나의 가계부</h1><p>처음 한 번만 비밀번호를 설정하세요. 기록은 이 기기 브라우저 안에 암호화되어 저장됩니다.</p><input id="p1" class="password" type="password" autocomplete="new-password" maxlength="64" placeholder="비밀번호 10자 이상"><input id="p2" class="password" type="password" autocomplete="new-password" maxlength="64" placeholder="비밀번호 다시 입력"><button id="setupBtn" class="btn dark full">가계부 시작하기</button><button id="cloudRestoreBtn" class="btn light full gap-top">다른 기기 가계부 불러오기</button><div class="note">비밀번호를 잊으면 기록을 복구할 수 없습니다. 기기 간 동기화 시에도 가계부 내용은 암호화된 상태로만 서버에 저장됩니다.</div></div></section>
 
   <section id="locked" class="lock hidden"><div class="lockcard"><div class="logo">₩</div><h1>가계부 잠금</h1><p>비밀번호를 입력하면 저장된 가계부를 복호화합니다.</p><input id="upin" class="password" type="password" autocomplete="current-password" maxlength="64" placeholder="비밀번호"><button id="unlockBtn" class="btn dark full">열기</button><button id="restoreLockBtn" class="btn light full gap-top">백업 파일로 복원</button><input id="restoreLockInput" type="file" accept="application/json,.json" class="hidden"><div id="legacyNotice" class="note hidden">이전 버전 PIN도 사용할 수 있습니다.</div></div></section>
 
@@ -106,14 +106,32 @@
     <div id="categoryBudgetList" class="budget-manager-list"></div>
   </div></div>
 
-  <div id="settingsOverlay" class="overlay hidden"><div class="modal"><div class="modal-head"><h2>설정 · 보안</h2><button id="closeSettingsX" class="close-x">×</button></div><div class="settings"><button id="localPaybackBtn"><b>지역화폐 페이백</b><br><span class="muted">지역화폐 결제 시 적용할 페이백 비율 설정</span></button><button id="settingsCategoryBudgetBtn"><b>항목별 월 예산</b><br><span class="muted">카페·택시·데이트 등 개별 한도 설정</span></button><button id="changePasswordBtn"><b>비밀번호 변경</b><br><span class="muted">암호화 비밀번호 변경</span></button><button id="backupBtn"><b>암호화 백업 저장</b><br><span class="muted">JSON 백업 파일</span></button><button id="csvBtn"><b>CSV 내보내기</b><br><span class="muted">평문 파일이므로 보관 주의</span></button><button id="restoreBtn"><b>백업 복원</b><br><span class="muted">현재 데이터를 백업으로 교체</span></button><input id="restoreInput" type="file" accept="application/json,.json" class="hidden"><button id="lockBtn"><b>지금 잠그기</b><br><span class="muted">복호화된 데이터를 즉시 제거</span></button></div><div class="note gap-top-lg">3분간 실제 조작이 없을 때만 자동으로 잠깁니다. 예산과 가맹점 분류 학습 정보도 암호화해서 저장합니다.</div></div></div>
+  <div id="settingsOverlay" class="overlay hidden"><div class="modal"><div class="modal-head"><h2>설정 · 보안</h2><button id="closeSettingsX" class="close-x">×</button></div><div class="settings"><button id="cloudSyncBtn"><b>기기 간 동기화</b><br><span id="cloudSyncStatus" class="muted">연결 안 됨</span></button><button id="localPaybackBtn"><b>지역화폐 페이백</b><br><span class="muted">지역화폐 결제 시 적용할 페이백 비율 설정</span></button><button id="settingsCategoryBudgetBtn"><b>항목별 월 예산</b><br><span class="muted">카페·택시·데이트 등 개별 한도 설정</span></button><button id="changePasswordBtn"><b>비밀번호 변경</b><br><span class="muted">암호화 비밀번호 변경</span></button><button id="backupBtn"><b>암호화 백업 저장</b><br><span class="muted">JSON 백업 파일</span></button><button id="csvBtn"><b>CSV 내보내기</b><br><span class="muted">평문 파일이므로 보관 주의</span></button><button id="restoreBtn"><b>백업 복원</b><br><span class="muted">현재 데이터를 백업으로 교체</span></button><input id="restoreInput" type="file" accept="application/json,.json" class="hidden"><button id="lockBtn"><b>지금 잠그기</b><br><span class="muted">복호화된 데이터를 즉시 제거</span></button></div><div class="note gap-top-lg">3분간 실제 조작이 없을 때만 자동으로 잠깁니다. 예산과 가맹점 분류 학습 정보도 암호화해서 저장합니다.</div></div></div>
 
   <div id="localPaybackOverlay" class="overlay hidden"><div class="modal small-modal"><div class="modal-head"><h2>지역화폐 페이백</h2><button id="closeLocalPaybackX" class="close-x">×</button></div><div class="field"><label for="localPaybackRate">페이백 비율 (%)</label><input id="localPaybackRate" type="number" min="0" max="100" step="0.1" inputmode="decimal" placeholder="예: 10"></div><div class="note">지역화폐로 기록한 지출에 설정 비율을 적용해 예상 페이백을 계산합니다. 실제 지급액·조건은 지역화폐 정책에 따라 다를 수 있습니다.</div><div class="btns"><button id="clearLocalPaybackBtn" class="btn light">비율 지우기</button><button id="saveLocalPaybackBtn" class="btn dark">저장</button></div></div></div>
 
   <div id="passwordOverlay" class="overlay hidden"><div class="modal small-modal"><h2>비밀번호 변경</h2><div class="field"><label>현재 비밀번호</label><input id="currentPassword" type="password"></div><div class="field"><label>새 비밀번호</label><input id="newPassword" type="password"></div><div class="field"><label>새 비밀번호 확인</label><input id="newPassword2" type="password"></div><div class="btns"><button id="cancelPasswordBtn" class="btn light">취소</button><button id="savePasswordBtn" class="btn dark">변경</button></div></div></div>
 
+
+  <div id="cloudOverlay" class="overlay hidden"><div class="modal small-modal">
+    <div class="modal-head"><div><div class="eyebrow">ENCRYPTED SYNC</div><h2>기기 간 동기화</h2></div><button id="closeCloudX" class="close-x">×</button></div>
+    <div class="cloud-security-note">Supabase에는 <b>암호화된 가계부 데이터만</b> 저장됩니다. 가계부 암호화 비밀번호는 Supabase로 전송하지 않습니다.</div>
+    <div id="cloudSignedOut">
+      <div class="field"><label for="cloudEmail">이메일</label><input id="cloudEmail" type="email" autocomplete="email" placeholder="동기화 계정 이메일"></div>
+      <div class="field"><label for="cloudPassword">클라우드 계정 비밀번호</label><input id="cloudPassword" type="password" autocomplete="current-password" maxlength="72" placeholder="8자 이상"></div>
+      <div class="btns"><button id="cloudRegisterBtn" class="btn light">계정 만들기</button><button id="cloudLoginBtn" class="btn dark">로그인</button></div>
+      <div class="note gap-top">클라우드 계정 비밀번호와 가계부 암호화 비밀번호는 서로 다른 용도입니다. 새 계정은 이메일 확인이 필요할 수 있습니다.</div>
+    </div>
+    <div id="cloudSignedIn" class="hidden">
+      <div class="cloud-account-card"><span>연결된 계정</span><b id="cloudAccountText"></b><small id="cloudDetail">동기화 준비됨</small></div>
+      <button id="syncNowBtn" class="btn dark full">지금 동기화</button>
+      <button id="cloudReplaceBtn" class="btn light full gap-top">클라우드 데이터로 이 기기 교체</button>
+      <button id="disconnectCloudBtn" class="btn danger full gap-top">이 기기에서 연결 해제</button>
+      <div class="note gap-top">두 기기에서 동시에 수정해도 거래 내역은 최신 수정 시각을 기준으로 병합합니다. 비밀번호를 한 기기에서 바꿨다면 다른 기기는 “클라우드 데이터로 이 기기 교체” 후 새 가계부 비밀번호로 열어주세요.</div>
+    </div>
+  </div></div>
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js" defer></script>
-  <script src="./app-v11.js" defer></script>
+  <script src="./app-v12.js" defer></script>
 </body>
 </html>
