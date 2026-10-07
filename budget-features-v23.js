@@ -316,15 +316,21 @@
   }
   function scheduledMonthItems(yearMonth=month()){
     const s=shape(ctx.getData());
-    return (s.finance.scheduledExpenses||[]).map(item=>{
+    const manual=(s.finance.scheduledExpenses||[]).map(item=>{
       const occurrenceDate=scheduledOccurrenceDate(item,yearMonth);
-      return occurrenceDate?{...item,occurrenceDate}:null;
-    }).filter(Boolean).sort((a,b)=>a.occurrenceDate.localeCompare(b.occurrenceDate)||(a.title||'').localeCompare(b.title||'','ko'));
+      return occurrenceDate?{...item,occurrenceDate,source:'scheduled'}:null;
+    }).filter(Boolean);
+    const investments=(s.investmentPlans||[]).filter(p=>p.status!=='done'&&String(p.targetDate||'').startsWith(yearMonth)).map(p=>({
+      id:'investment:'+p.id,title:'투자 · '+(p.name||p.symbol||'투자 계획'),amount:amount(p.amount),occurrenceDate:p.targetDate,kind:'투자',repeat:'none',source:'investment'
+    }));
+    return [...manual,...investments].sort((a,b)=>a.occurrenceDate.localeCompare(b.occurrenceDate)||(a.title||'').localeCompare(b.title||'','ko'));
   }
   function renderScheduledCalendar(){
     const d=ctx.getData(),view=ctx.getView(),ym=month(),items=scheduledMonthItems(ym);
-    const total=items.reduce((n,x)=>n+amount(x.amount),0);
-    $('scheduledMonthTotal').textContent=items.length?('예정 '+won(total)+' · '+items.length+'건'):'예정지출 없음';
+    const today=ymd(new Date()),isCurrentMonth=ym===today.slice(0,7),counted=isCurrentMonth?items.filter(x=>x.occurrenceDate>=today):items;
+    const total=counted.reduce((n,x)=>n+amount(x.amount),0);
+    $('scheduledSummaryLabel').textContent=isCurrentMonth?'오늘 이후 예정지출':'선택한 달 예정지출';
+    $('scheduledMonthTotal').textContent=counted.length?('예정 '+won(total)+' · '+counted.length+'건'):'예정지출 없음';
     const byDay=new Map();
     for(const item of items){
       const day=Number(item.occurrenceDate.slice(8,10));
@@ -342,21 +348,22 @@
       </button>`;
     }
     $('scheduledCalendar').innerHTML='<div class="scheduled-cal-head">'+['일','월','화','수','목','금','토'].map(x=>'<span>'+x+'</span>').join('')+'</div><div class="scheduled-cal-grid">'+cells+'</div>';
-    const today=ymd(new Date());
     const future=items.filter(x=>x.occurrenceDate>=today||ym!==today.slice(0,7)).slice(0,5);
     $('scheduledUpcomingList').innerHTML=future.length?future.map(x=>`<button type="button" class="scheduled-upcoming-row" data-scheduled-edit="${enc(x.id)}">
       <span><b>${enc(x.title)}</b><small>${enc(x.occurrenceDate)} · ${enc(x.kind||'기타')}${x.repeat==='monthly'?' · 매월':''}</small></span>
       <strong>${won(x.amount)}</strong></button>`).join(''):'<div class="finance-hint">이 달에 등록된 예정지출이 없습니다.</div>';
     $('scheduledCalendar').querySelectorAll('[data-scheduled-day]').forEach(btn=>btn.addEventListener('click',()=>{
       const day=Number(btn.dataset.scheduledDay),rows=byDay.get(day)||[];
-      if(rows.length===1)openScheduledEditor(rows[0]);
+      if(rows.length===1){if(rows[0].source==='investment')ctx.switchTab('investment');else openScheduledEditor(rows[0]);}
       else if(rows.length>1){
         $('scheduledManageOverlay').classList.remove('hidden');
         renderScheduledManager(day);
       }
     }));
     $('scheduledUpcomingList').querySelectorAll('[data-scheduled-edit]').forEach(btn=>btn.addEventListener('click',()=>{
-      const item=shape(d).finance.scheduledExpenses.find(x=>x.id===btn.dataset.scheduledEdit);if(item)openScheduledEditor(item);
+      const id=btn.dataset.scheduledEdit;
+      if(id.startsWith('investment:')){ctx.switchTab('investment');return;}
+      const item=shape(d).finance.scheduledExpenses.find(x=>x.id===id);if(item)openScheduledEditor(item);
     }));
   }
   function resetScheduledForm(){
@@ -379,7 +386,7 @@
   }
   function renderScheduledManager(dayFilter=null){
     const s=shape(ctx.getData()),ym=month();
-    let items=scheduledMonthItems(ym);
+    let items=scheduledMonthItems(ym).filter(x=>x.source==='scheduled');
     if(dayFilter)items=items.filter(x=>Number(x.occurrenceDate.slice(8,10))===Number(dayFilter));
     $('scheduledManagerList').innerHTML=items.length?items.map(x=>`<button type="button" class="scheduled-manage-row" data-scheduled-manager="${enc(x.id)}">
       <span><b>${enc(x.title)}</b><small>${enc(x.occurrenceDate)} · ${enc(x.kind||'기타')}${x.repeat==='monthly'?' · 매월 반복':''}</small></span><strong>${won(x.amount)}</strong></button>`).join('')
@@ -504,7 +511,7 @@
     home.insertAdjacentHTML('beforeend',`
       <div class="section-title"><span>예정지출 캘린더</span><button id="manageScheduledBtn" class="text-btn">관리</button></div>
       <section class="scheduled-card">
-        <div class="scheduled-summary"><span>선택한 달 앞으로 나갈 돈</span><b id="scheduledMonthTotal">예정지출 없음</b></div>
+        <div class="scheduled-summary"><span id="scheduledSummaryLabel">오늘 이후 예정지출</span><b id="scheduledMonthTotal">예정지출 없음</b></div>
         <div id="scheduledCalendar" class="scheduled-calendar"></div>
         <div id="scheduledUpcomingList" class="scheduled-upcoming-list"></div>
       </section>
