@@ -1,5 +1,5 @@
-const CACHE = "private-budget-v17";
-const ASSETS = ["./", "./index.html", "./manifest.json", "./style-v17.css", "./budget-features-v16.js", "./app-v17.js"];
+const CACHE = "private-budget-v18";
+const ASSETS = ["./", "./index.html", "./manifest.json", "./style-v18.css", "./budget-features-v18.js", "./app-v18.js"];
 
 self.addEventListener("install", event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)));
