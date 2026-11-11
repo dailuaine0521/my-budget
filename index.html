@@ -10,7 +10,7 @@
   <meta name="referrer" content="no-referrer">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://cdn.jsdelivr.net; style-src 'self'; img-src 'self' data: blob:; connect-src 'self' https://cdn.jsdelivr.net https://tessdata.projectnaptha.com https://nrooydumvpwggkrdghyv.supabase.co; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; worker-src 'self' blob: https://cdn.jsdelivr.net; manifest-src 'self'; upgrade-insecure-requests">
   <link rel="manifest" href="./manifest.json">
-  <link rel="stylesheet" href="./style-v25.css">
+  <link rel="stylesheet" href="./style-v26.css">
   <title>나의 가계부</title>
 </head>
 <body>
@@ -98,7 +98,7 @@
   </main>
 
   <div id="txOverlay" class="overlay hidden"><div class="modal"><div class="modal-head"><h2 id="txTitle">지출 기록</h2><button id="cancelX" class="close-x">×</button></div><input id="id" type="hidden"><input id="type" type="hidden">
-    <div id="quickSuggestWrap" class="hidden"><div class="field-label">최근 패턴</div><div id="quickSuggestions" class="chips"></div></div>
+    <div id="quickSuggestWrap" class="hidden"><div class="field-label">빠른 템플릿</div><div id="quickSuggestions" class="chips quick-template-chips"></div></div>
     <div class="field"><label for="date">날짜</label><div class="date-stepper"><input id="date" type="date"><div class="date-step-buttons"><button id="dateUp" type="button" aria-label="하루 뒤">▲</button><button id="dateDown" type="button" aria-label="하루 전">▼</button></div></div></div>
     <div class="field"><label for="amount">금액</label><input id="amount" type="number" min="0" step="1" inputmode="numeric" placeholder="예: 12000"></div>
     <div class="field"><label for="cat">카테고리</label><select id="cat"></select></div>
@@ -177,7 +177,7 @@
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
   <script src="./budget-features-v31.js" defer></script>
   <script src="./ocr-batch-v28.js" defer></script>
-  <script src="./app-v29.js" defer></script>
+  <script src="./app-v30.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js" defer></script>
 </body>
 </html>
