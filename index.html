@@ -10,7 +10,7 @@
   <meta name="referrer" content="no-referrer">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://cdn.jsdelivr.net; style-src 'self'; img-src 'self' data: blob:; connect-src 'self' https://cdn.jsdelivr.net https://tessdata.projectnaptha.com https://nrooydumvpwggkrdghyv.supabase.co; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; worker-src 'self' blob: https://cdn.jsdelivr.net; manifest-src 'self'; upgrade-insecure-requests">
   <link rel="manifest" href="./manifest.json">
-  <link rel="stylesheet" href="./style-v26.css">
+  <link rel="stylesheet" href="./style-v27.css">
   <title>나의 가계부</title>
 </head>
 <body>
@@ -37,7 +37,17 @@
         <div class="mini-card"><span>하루 평균</span><b id="dailyAverage">0원</b></div>
         <div class="mini-card"><span>월말 예상</span><b id="monthForecast">0원</b></div>
         <div class="mini-card"><span>무지출일</span><b id="noSpendDays">0일</b></div>
-        <div class="mini-card whisky-summary-card"><span>이번 달 위스키 구매</span><b id="whiskyPurchaseMonth">0원</b><small>생활비·주간 소비목표에서 제외</small></div>
+        <div class="mini-card whisky-summary-card">
+          <div class="whisky-summary-head"><span>이번 달 위스키 구매</span><button id="whiskyGoalBtn" type="button" class="text-btn">목표 설정</button></div>
+          <b id="whiskyPurchaseMonth">0원</b>
+          <div class="whisky-stats">
+            <span>구매 <strong id="whiskyPurchaseCount">0회</strong></span>
+            <span>평균 <strong id="whiskyPurchaseAverage">0원</strong></span>
+            <span>전월 <strong id="whiskyPurchasePrev">0원</strong></span>
+          </div>
+          <div id="whiskyGoalProgress" class="progress hidden"><span></span></div>
+          <small id="whiskyGoalMeta">월 구매 목표를 설정할 수 있어요.</small>
+        </div>
       </div>
 
       <div id="compareCard" class="compare-card"></div>
@@ -102,6 +112,7 @@
     <div class="field"><label for="date">날짜</label><div class="date-stepper"><input id="date" type="date"><div class="date-step-buttons"><button id="dateUp" type="button" aria-label="하루 뒤">▲</button><button id="dateDown" type="button" aria-label="하루 전">▼</button></div></div></div>
     <div class="field"><label for="amount">금액</label><input id="amount" type="number" min="0" step="1" inputmode="numeric" placeholder="예: 12000"></div>
     <div class="field"><label for="cat">카테고리</label><select id="cat"></select></div>
+    <div id="spendingClassField" class="field hidden"><label for="spendingClass">지출 성격</label><select id="spendingClass"><option>필수</option><option>선택</option><option>별도</option></select></div>
     <div id="mealField" class="field hidden"><label for="meal">식사 구분</label><select id="meal"><option value="">선택하세요</option><option>아침</option><option>점심</option><option>저녁</option><option>야식</option><option>술</option></select></div>
     <div id="foodContextField" class="field hidden"><label for="foodContext">식사 상황</label><select id="foodContext"><option value="">선택하세요</option><option>집</option><option>직장</option><option>데이트</option><option>혼밥</option></select></div>
     <div id="detailField" class="field hidden"><label id="detailLabel" for="detail">세부항목</label><select id="detail"></select></div>
@@ -113,6 +124,8 @@
     <div id="delWrap" class="hidden"><button id="deleteBtn" class="btn danger full">이 내역 삭제</button></div>
     <div class="btns"><button id="cancelBtn" class="btn light">취소</button><button id="saveBtn" class="btn dark">저장</button></div>
   </div></div>
+
+  <div id="whiskyGoalOverlay" class="overlay hidden"><div class="modal small-modal"><div class="modal-head"><h2>위스키 월 구매 목표</h2><button id="closeWhiskyGoalX" class="close-x">×</button></div><div class="field"><label for="whiskyGoalAmount">한 달 목표 금액</label><input id="whiskyGoalAmount" type="number" min="0" step="50000" inputmode="numeric" placeholder="예: 150000"></div><div class="note">위스키 구매는 생활비·주간 소비목표에서 제외하고 이 목표로 별도 관리합니다.</div><div class="btns"><button id="clearWhiskyGoalBtn" class="btn light">목표 해제</button><button id="saveWhiskyGoalBtn" class="btn dark">저장</button></div></div></div>
 
   <div id="budgetOverlay" class="overlay hidden"><div class="modal small-modal"><div class="modal-head"><h2>월 예산 설정</h2><button id="closeBudgetX" class="close-x">×</button></div><div class="field"><label for="budgetAmount">한 달에 사용할 금액</label><input id="budgetAmount" type="number" min="0" step="50000" inputmode="numeric" placeholder="예: 1000000"></div><div class="note">예산은 암호화된 가계부 데이터 안에 저장됩니다.</div><div class="btns"><button id="clearBudgetBtn" class="btn light">예산 지우기</button><button id="saveBudgetBtn" class="btn dark">저장</button></div></div></div>
 
@@ -175,9 +188,9 @@
     </div>
   </div>
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
-  <script src="./budget-features-v32.js" defer></script>
-  <script src="./ocr-batch-v28.js" defer></script>
-  <script src="./app-v30.js" defer></script>
+  <script src="./budget-features-v33.js" defer></script>
+  <script src="./ocr-batch-v29.js" defer></script>
+  <script src="./app-v33.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js" defer></script>
 </body>
 </html>
