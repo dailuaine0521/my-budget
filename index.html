@@ -10,7 +10,7 @@
   <meta name="referrer" content="no-referrer">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://cdn.jsdelivr.net; style-src 'self'; img-src 'self' data: blob:; connect-src 'self' https://cdn.jsdelivr.net https://tessdata.projectnaptha.com https://nrooydumvpwggkrdghyv.supabase.co; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; worker-src 'self' blob: https://cdn.jsdelivr.net; manifest-src 'self'; upgrade-insecure-requests">
   <link rel="manifest" href="./manifest.json">
-  <link rel="stylesheet" href="./style-v24.css">
+  <link rel="stylesheet" href="./style-v25.css">
   <title>나의 가계부</title>
 </head>
 <body>
@@ -37,6 +37,7 @@
         <div class="mini-card"><span>하루 평균</span><b id="dailyAverage">0원</b></div>
         <div class="mini-card"><span>월말 예상</span><b id="monthForecast">0원</b></div>
         <div class="mini-card"><span>무지출일</span><b id="noSpendDays">0일</b></div>
+        <div class="mini-card whisky-summary-card"><span>이번 달 위스키 구매</span><b id="whiskyPurchaseMonth">0원</b><small>생활비·주간 소비목표에서 제외</small></div>
       </div>
 
       <div id="compareCard" class="compare-card"></div>
@@ -174,9 +175,9 @@
     </div>
   </div>
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
-  <script src="./budget-features-v29.js" defer></script>
-  <script src="./ocr-batch-v27.js" defer></script>
-  <script src="./app-v28.js" defer></script>
+  <script src="./budget-features-v30.js" defer></script>
+  <script src="./ocr-batch-v28.js" defer></script>
+  <script src="./app-v29.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js" defer></script>
 </body>
 </html>
